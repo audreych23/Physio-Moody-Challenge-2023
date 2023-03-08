@@ -8,62 +8,10 @@ For this example, we implemented a random forest model with several features. Yo
 
 This code uses four main scripts, described below, to train and run a model for the Challenge.
 
-## How do I run these scripts?
+## How do I run the code in Docker? (Recommended Ways)
 
-You can install the dependencies for these scripts by creating a Docker image (see below) and running
 
-    pip install -r requirements.txt
-
-You can train you model by running
-
-    python train_model.py training_data model
-
-where
-
-- `training_data` (input; required) is a folder with the training data files and
-- `model` (output; required) is a folder for saving your model.
-
-You can run you trained model by running
-
-    python run_model.py model test_data test_outputs
-
-where
-
-- `model` (input; required) is a folder for loading your model, and
-- `test_data` (input; required) is a folder with the validation or test data files (you can use the training data for debugging and cross-validation), and
-- `test_outputs` is a folder for saving your model outputs.
-
-The [Challenge website](https://physionetchallenges.org/2023/#data) provides a training database with a description of the contents and structure of the data files.
-
-You can evaluate your model by pulling or downloading the [evaluation code](https://github.com/physionetchallenges/evaluation-2023) and running
-
-    python evaluate_model.py labels outputs scores.csv
-
-where `labels` is a folder with labels for the data, such as the training database on the PhysioNet webpage; `outputs` is a folder containing files with your model's outputs for the data; and `scores.csv` (optional) is a collection of scores for your model.
-
-## Which scripts I can edit?
-
-We will run the `train_model.py` and `run_model.py` scripts to train and run your model, so please check these scripts and the functions that they call.
-
-Please edit the following script to add your training and testing code:
-
-* `team_code.py` is a script with functions for training and running your model.
-
-Please do **not** edit the following scripts. We will use the unedited versions of these scripts when running your code:
-
-* `train_model.py` is a script for training your model.
-* `run_model.py` is a script for running your trained model.
-* `helper_code.py` is a script with helper functions that we used for our code. You are welcome to use them in your code.
-
-These scripts must remain in the root path of your repository, but you can put other scripts and other files elsewhere in your repository.
-
-## How do I train, save, load, and run my model?
-
-To train and save your models, please edit the `train_challenge_model` function in the `team_code.py` script. Please do not edit the input or output arguments of the `train_challenge_model` function.
-
-To load and run your trained model, please edit the `load_challenge_model` and `run_challenge_model` functions in the `team_code.py` script. Please do not edit the input or output arguments of the functions of the `load_challenge_model` and `run_challenge_model` functions.
-
-## How do I run these scripts in Docker?
+For further information you can read [How do I run these scripts?](#how-do-i-run-these-scripts?)
 
 Docker and similar platforms allow you to containerize and package your code with specific dependencies so that you can run your code reliably in other computing environments and operating systems.
 
@@ -114,6 +62,63 @@ If you have trouble running your code, then please try the follow steps to run t
 
         root@[...]:/challenge# exit
         Exit
+
+## How do I run these scripts?
+<details>
+    <summary> Click to expand! </summary>
+    You can install the dependencies for these scripts by creating a Docker image (see below) and running
+
+        pip install -r requirements.txt
+
+    You can train you model by running
+
+        python train_model.py training_data model
+
+    where
+
+    - `training_data` (input; required) is a folder with the training data files and
+    - `model` (output; required) is a folder for saving your model.
+
+    You can run you trained model by running
+
+        python run_model.py model test_data test_outputs
+
+    where
+
+    - `model` (input; required) is a folder for loading your model, and
+    - `test_data` (input; required) is a folder with the validation or test data files (you can use the training data for debugging and cross-validation), and
+    - `test_outputs` is a folder for saving your model outputs.
+
+    The [Challenge website](https://physionetchallenges.org/2023/#data) provides a training database with a description of the contents and structure of the data files.
+
+    You can evaluate your model by ~~pulling or downloading the [evaluation code](https://github.com/physionetchallenges/evaluation-2023) and~~ running
+
+        python evaluate_model.py labels outputs scores.csv
+
+    where `labels` is a folder with labels for the data, such as the training database on the PhysioNet webpage; `outputs` is a folder containing files with your model's outputs for the data; and `scores.csv` (optional) is a collection of scores for your model.
+</details>
+
+## Which scripts I can edit?
+
+We will run the `train_model.py` and `run_model.py` scripts to train and run your model, so please check these scripts and the functions that they call.
+
+Please edit the following script to add your training and testing code:
+
+* `team_code.py` is a script with functions for training and running your model.
+
+Please do **not** edit the following scripts. We will use the unedited versions of these scripts when running your code:
+
+* `train_model.py` is a script for training your model.
+* `run_model.py` is a script for running your trained model.
+* `helper_code.py` is a script with helper functions that we used for our code. You are welcome to use them in your code.
+
+These scripts must remain in the root path of your repository, but you can put other scripts and other files elsewhere in your repository.
+
+## How do I train, save, load, and run my model?
+
+To train and save your models, please edit the `train_challenge_model` function in the `team_code.py` script. Please do not edit the input or output arguments of the `train_challenge_model` function.
+
+To load and run your trained model, please edit the `load_challenge_model` and `run_challenge_model` functions in the `team_code.py` script. Please do not edit the input or output arguments of the functions of the `load_challenge_model` and `run_challenge_model` functions.
 
 ## How do I learn more?
 
