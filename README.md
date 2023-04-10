@@ -86,7 +86,7 @@ If you have trouble running your code, then please try the follow steps to run t
     where
 
     - `model` (input; required) is a folder for loading your model, and
-    - `test_data` (input; required) is a folder with the validation or test data files (you can use the training data for debugging and cross-validation), and
+    - `test_data` (input; required) is a folder with the validation or test data files (you can use the training data for debugging and cross-validation, but the validation and test data will not have labels and will have 12, 24, 48, or 72 hours of data), and
     - `test_outputs` is a folder for saving your model outputs.
 
     The [Challenge website](https://physionetchallenges.org/2023/#data) provides a training database with a description of the contents and structure of the data files.
@@ -123,6 +123,16 @@ To load and run your trained model, please edit the `load_challenge_model` and `
 ## How do I learn more?
 
 Please see the [Challenge website](https://physionetchallenges.org/2023/) for more details. Please post questions and concerns on the [Challenge discussion forum](https://groups.google.com/forum/#!forum/physionet-challenges).
+
+## What else do I need?
+
+This repository does not include code for evaluating your entry. Please see the evaluation code repository for code and instructions for evaluating your entry using the Challenge scoring metric.
+
+This repository also includes code for preparing the validation and test sets. We will run your trained model on data without labels and with only 12, 24, 48, and 72 hours of recording data. You can use this code to prepare the training data in the same way that we prepare the validation and test sets.
+
+* `remove_data.py`: Remove the binary signal data, i.e., the EEG recordings. Usage: run python remove_data.py -i input_folder -o output_folder to copy the labels and metadata from input_folder to output_folder.
+* `remove_labels.py`: Remove the labels. Usage: run python remove_labels.py -i input_folder -o output_folder to copy the data and metadata from input_folder to output_folder.
+* `truncate_data.py`: Truncate the EEG recordings. Usage: run python truncate_data.py -i input_folder -o output_folder -k 12 to truncate the EEG recordings to 12 hours. We will run your trained models on data with 12, 24, 48, and 72 hours of recording data.
 
 ## Useful links
 
