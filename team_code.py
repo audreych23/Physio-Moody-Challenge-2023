@@ -26,12 +26,17 @@ def prepare_label(model_type, patient_metadata, available_signal_data):
     # model type is an integer from 1, 2, 3
     outcomes = list()
     cpcs = list()
-    if (model_type == 1):
+    if model_type == 1:
         current_outcome = get_outcome(patient_metadata)
         current_cpc = get_cpc(patient_metadata)
         for i in range(available_signal_data.shape[0]):
             outcomes.append(current_outcome)
             cpcs.append(current_cpc)
+    elif model_type == 2:
+        current_outcome = get_outcome(patient_metadata)
+        current_cpc = get_cpc(patient_metadata)
+        outcomes.append(current_outcome)
+        cpcs.append(current_cpc)
     else:
         raise Exception("this model_type have not been implemented")
     
@@ -67,6 +72,9 @@ def train_challenge_model(data_folder, model_folder, verbose):
     outcomes = list()
     cpcs = list()
 
+    outcomes_random_forest = list()
+    cpcs_random_forest = list()
+
     for i in range(num_patients):
         if verbose >= 2:
             print('    {}/{}...'.format(i+1, num_patients))
@@ -98,7 +106,12 @@ def train_challenge_model(data_folder, model_folder, verbose):
 
         # Extract labels.
         try:
-            outcomes, cpcs = prepare_label(model_type=1, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
+            outcome, cpc = prepare_label(model_type=1, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
+            outcome_random_forest, cpc_random_forest = prepare_label(model_type=2, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
+            outcomes.extend(outcome)
+            outcomes_random_forest.extend(outcome_random_forest)
+            cpcs.extend(cpc)
+            cpcs_random_forest.extend(cpc_random_forest)
         except:
             print("model_type has not been implemented, exiting.....")
             exit(1)
@@ -112,7 +125,11 @@ def train_challenge_model(data_folder, model_folder, verbose):
 
     outcomes = np.vstack(outcomes)
     cpcs = np.vstack(cpcs)
+    outcomes_random_forest = np.vstack(outcomes_random_forest)
+    cpcs_random_forest = np.vstack(cpcs_random_forest)
     
+    for x in patients_features:
+        print(x)
     if (print_flag == 1):
         # sanity check
         print("patients features shape", patients_features.shape)
@@ -123,6 +140,8 @@ def train_challenge_model(data_folder, model_folder, verbose):
         print("beta psd datas", beta_psd_datas.shape)
         print("outcomes shape", outcomes.shape)
         print("cpcs shape", cpcs.shape)
+        print("outcomes_random_forest", outcomes_random_forest.shape)
+        print("cpcs_random_forest", cpcs_random_forest.shape)
 
 
     # Train the models.
@@ -135,14 +154,14 @@ def train_challenge_model(data_folder, model_folder, verbose):
     random_state   = 789  # Random state; set for reproducibility.
 
     # Impute any missing features; use the mean value by default.
-    imputer = SimpleImputer().fit(features)
+    imputer = SimpleImputer().fit(patients_features)
 
     # Train the models.
-    features = imputer.transform(features)
+    patients_features = imputer.transform(patients_features)
     outcome_model = RandomForestClassifier(
-        n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(features, outcomes.ravel())
+        n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, outcomes_random_forest.ravel())
     cpc_model = RandomForestRegressor(
-        n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(features, cpcs.ravel())
+        n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, cpcs_random_forest.ravel())
 
     # Save the models.
     save_challenge_model(model_folder, imputer, outcome_model, cpc_model)
