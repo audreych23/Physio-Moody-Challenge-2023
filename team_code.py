@@ -43,7 +43,7 @@ def create_model_lstm(input_data, output_type):
     )
     x = tf.keras.layers.LSTM(4)(inputs)
     x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(512, activation='relu')(x)
+    x = tf.keras.layers.Dense(8, activation='relu')(x)
     if output_type == 0:
         outputs = tf.keras.layers.Dense(1, activation='sigmoid')(x)
     else:
