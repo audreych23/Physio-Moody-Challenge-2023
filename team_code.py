@@ -22,6 +22,21 @@ import joblib
 #
 ################################################################################
 
+def prepare_label(model_type, patient_metadata, available_signal_data):
+    # model type is an integer from 1, 2, 3
+    outcomes = list()
+    cpcs = list()
+    if (model_type == 1):
+        current_outcome = get_outcome(patient_metadata)
+        current_cpc = get_cpc(patient_metadata)
+        for i in range(available_signal_data.shape[0]):
+            outcomes.append(current_outcome)
+            cpcs.append(current_cpc)
+    else:
+        raise Exception("this model_type have not been implemented")
+    
+    return outcomes, cpcs
+
 # Train your model.
 def train_challenge_model(data_folder, model_folder, verbose):
     print_flag = 1
@@ -82,12 +97,11 @@ def train_challenge_model(data_folder, model_folder, verbose):
             print("beta psd shape: ", beta_psd_data.shape)
 
         # Extract labels.
-        current_outcome = get_outcome(patient_metadata)
-        current_cpc = get_cpc(patient_metadata)
-        for i in range(available_signal_data.shape[0]):
-            outcomes.append(current_outcome)
-            cpcs.append(current_cpc)
-
+        try:
+            outcomes, cpcs = prepare_label(model_type=1, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
+        except:
+            print("model_type has not been implemented, exiting.....")
+            exit(1)
 
     patients_features = np.vstack(patients_features)
     available_signal_datas = np.vstack(available_signal_datas)
