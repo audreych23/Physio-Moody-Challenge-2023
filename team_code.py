@@ -15,12 +15,60 @@ import mne
 from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import joblib
+import tensorflow as tf
 
+# for reproducability
+seed = 1
+np.random.seed(seed)
+tf.random.set_seed(seed)
+    
 ################################################################################
 #
 # Required functions. Edit these functions to add your code, but do not change the arguments of the functions.
 #
 ################################################################################
+
+
+# return a model
+def create_model_lstm(input_data, output_type):
+    """
+        param:
+            input_data: a nd array with 3 dimensions (batch, timesteps, features)
+            output_type: 0 or 1, where 0 is outcome and 1 is cpc
+        returns
+            model: tf.keras.models.Model type
+    """
+    inputs = tf.keras.layers.Input(
+        shape=(input_data.shape[1], input_data.shape[2])
+    )
+    x = tf.keras.layers.LSTM(4)(inputs)
+    x = tf.keras.layers.Flatten()(x)
+    x = tf.keras.layers.Dense(512, activation='relu')(x)
+    if output_type == 0:
+        outputs = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    else:
+        outputs = tf.keras.layers.Dense(5, activation='softmax')(x)
+
+    return tf.keras.models.Model(inputs, outputs)
+
+def compile_train_model(x_train, y_train, model, output_type):
+    """
+        param:
+            x_train: a nd array with 3 dimensions (batch, timesteps, features)
+            y_train: a nd array with 2 dimensions (batch, 1)
+            x_val?,y_val?
+            model : the model you want to train
+            output_type: 0 or 1, where 0 is outcome and 1 is cpc 
+        returns 
+            the trained model
+    """
+    if output_type == 0:
+        model.compile(loss='binary_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics = ['accuracy'])
+    else:
+        model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics = ['accuracy'])
+    # model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
+    model.fit(x_train, y_train, epochs=10)
+    return model
 
 def prepare_label(model_type, patient_metadata, available_signal_data):
     # model type is an integer from 1, 2, 3
@@ -87,7 +135,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
         # current_features = get_features(patient_metadata, recording_metadata, recording_data)
         # current_features = get_features_test(patient_metadata, recording_metadata, recording_data)
         # features.append(current_features)
-        patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features_test(patient_metadata, recording_metadata, recording_data)
+        patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
 
         patients_features.append(patient_features)
         available_signal_datas.append(available_signal_data)
@@ -127,9 +175,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
     cpcs = np.vstack(cpcs)
     outcomes_random_forest = np.vstack(outcomes_random_forest)
     cpcs_random_forest = np.vstack(cpcs_random_forest)
-    
-    for x in patients_features:
-        print(x)
+
     if (print_flag == 1):
         # sanity check
         print("patients features shape", patients_features.shape)
@@ -147,6 +193,18 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # Train the models.
     if verbose >= 1:
         print('Training the Challenge models on the Challenge data...')
+
+    # for reproducible purpose
+    
+    model_lstm = create_model_lstm(available_signal_datas, 0)
+    model_lstm.summary()
+    model_lstm = compile_train_model(available_signal_datas, outcomes, model_lstm, 0)
+    save_challenge_model_lstm(model_folder, model_lstm, "model_outcome")
+
+    model_lstm = create_model_lstm(available_signal_datas, 1)
+    model_lstm.summary()
+    model_lstm = compile_train_model(available_signal_datas, outcomes, model_lstm, 1)
+    save_challenge_model_lstm(model_folder, model_lstm, "model_cpc")
 
     # Define parameters for random forest classifier and regressor.
     n_estimators   = 123  # Number of trees in the forest.
@@ -186,16 +244,16 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     patient_metadata, recording_metadata, recording_data = load_challenge_data(data_folder, patient_id)
 
     # Extract features.
-    features = get_features(patient_metadata, recording_metadata, recording_data)
-    features = features.reshape(1, -1)
+    patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
+    patient_features = patient_features.reshape(1, -1)
 
     # Impute missing data.
-    features = imputer.transform(features)
+    patient_features = imputer.transform(patient_features)
 
     # Apply models to features.
-    outcome = outcome_model.predict(features)[0]
-    outcome_probability = outcome_model.predict_proba(features)[0, 1]
-    cpc = cpc_model.predict(features)[0]
+    outcome = outcome_model.predict(patient_features)[0]
+    outcome_probability = outcome_model.predict_proba(patient_features)[0, 1]
+    cpc = cpc_model.predict(patient_features)[0]
 
     # Ensure that the CPC score is between (or equal to) 1 and 5.
     cpc = np.clip(cpc, 1, 5)
@@ -214,8 +272,11 @@ def save_challenge_model(model_folder, imputer, outcome_model, cpc_model):
     filename = os.path.join(model_folder, 'models.sav')
     joblib.dump(d, filename, protocol=0)
 
+def save_challenge_model_lstm(model_folder, outcome_model, folder_name):
+    outcome_model.save(os.path.join(model_folder, folder_name))
+
 # Extract features from the data.
-def get_features(patient_metadata, recording_metadata, recording_data):
+def get_features_2(patient_metadata, recording_metadata, recording_data):
     # TODO : DELETE THIS
     verbose = 1
     # Extract features from the patient metadata.
@@ -319,7 +380,7 @@ def get_features(patient_metadata, recording_metadata, recording_data):
     return features
 
 # Extract features from the data.
-def get_features_test(patient_metadata, recording_metadata, recording_data):
+def get_features(patient_metadata, recording_metadata, recording_data):
     """ Get the Timestamps Data.
         @params
             * patient_metadata (list):
