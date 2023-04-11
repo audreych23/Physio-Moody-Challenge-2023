@@ -16,6 +16,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import joblib
 import tensorflow as tf
+from scipy import stats as st
 
 # for reproducability
 seed = 1
@@ -65,6 +66,9 @@ def compile_train_model(x_train, y_train, model, output_type):
     if output_type == 0:
         model.compile(loss='binary_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics = ['accuracy'])
     else:
+        # convert to one-hot
+        y_train = tf.keras.utils.to_categorical(y_train, 5)
+        # y_train = np.eye(5)[y_train.flatten()]
         model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics = ['accuracy'])
     # model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
     model.fit(x_train, y_train, epochs=10)
@@ -196,15 +200,15 @@ def train_challenge_model(data_folder, model_folder, verbose):
 
     # for reproducible purpose
     
-    model_lstm = create_model_lstm(available_signal_datas, 0)
-    model_lstm.summary()
-    model_lstm = compile_train_model(available_signal_datas, outcomes, model_lstm, 0)
-    save_challenge_model_lstm(model_folder, model_lstm, "model_outcome")
+    model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
+    model_lstm_outcome.summary()
+    model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, model_lstm_outcome, 0)
+    save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
 
-    model_lstm = create_model_lstm(available_signal_datas, 1)
-    model_lstm.summary()
-    model_lstm = compile_train_model(available_signal_datas, outcomes, model_lstm, 1)
-    save_challenge_model_lstm(model_folder, model_lstm, "model_cpc")
+    # model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
+    # model_lstm_cpc.summary()
+    # model_lstm_cpc = compile_train_model(available_signal_datas, outcomes, model_lstm_cpc, 1)
+    # save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
 
     # Define parameters for random forest classifier and regressor.
     n_estimators   = 123  # Number of trees in the forest.
@@ -231,14 +235,24 @@ def train_challenge_model(data_folder, model_folder, verbose):
 # arguments of this function.
 def load_challenge_models(model_folder, verbose):
     filename = os.path.join(model_folder, 'models.sav')
-    return joblib.load(filename)
+    foldername_lstm_outcome = os.path.join(model_folder, 'model_outcome')
+    foldername_lstm_cpc = os.path.join(model_folder, 'model_cpc')
+    lstm_outcome = tf.keras.models.load_model(foldername_lstm_outcome)
+    lstm_outcome.summary()
+    lstm_cpc = tf.keras.models.load_model(foldername_lstm_cpc)
+    lstm_cpc.summary()
+    return joblib.load(filename), lstm_outcome, lstm_cpc 
 
 # Run your trained models. This function is *required*. You should edit this function to add your code, but do *not* change the
 # arguments of this function.
 def run_challenge_models(models, data_folder, patient_id, verbose):
-    imputer = models['imputer']
-    outcome_model = models['outcome_model']
-    cpc_model = models['cpc_model']
+    random_tree_model = models[0]
+    lstm_model_outcome = models[1]
+    lstm_model_cpc = models[2]
+
+    imputer = random_tree_model['imputer']
+    outcome_model = random_tree_model['outcome_model']
+    cpc_model = random_tree_model['cpc_model']
 
     # Load data.
     patient_metadata, recording_metadata, recording_data = load_challenge_data(data_folder, patient_id)
@@ -251,10 +265,22 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     patient_features = imputer.transform(patient_features)
 
     # Apply models to features.
-    outcome = outcome_model.predict(patient_features)[0]
-    outcome_probability = outcome_model.predict_proba(patient_features)[0, 1]
-    cpc = cpc_model.predict(patient_features)[0]
+    # outcome = outcome_model.predict(patient_features)[0]
+    # outcome_probability = outcome_model.predict_proba(patient_features)[0, 1]
+    # cpc = cpc_model.predict(patient_features)[0]
 
+    # outcome = np.round(lstm_model_outcome.predict(available_signal_data))
+    outcome_probability = lstm_model_outcome.predict(available_signal_data).flatten()
+    outcome_probability = np.average(outcome_probability)
+    outcome = np.round(outcome_probability)
+    # outcome_probability = st.mode(outcome, keepdims=False)
+    # convert mode object to integer
+    # outcome_probability = int(outcome_probability[0][0])
+
+    cpc = lstm_model_cpc.predict(available_signal_data)
+    cpc = np.argmax(cpc, axis=1).astype(np.int64)
+    cpc = np.average(cpc)
+    
     # Ensure that the CPC score is between (or equal to) 1 and 5.
     cpc = np.clip(cpc, 1, 5)
 
@@ -272,8 +298,8 @@ def save_challenge_model(model_folder, imputer, outcome_model, cpc_model):
     filename = os.path.join(model_folder, 'models.sav')
     joblib.dump(d, filename, protocol=0)
 
-def save_challenge_model_lstm(model_folder, outcome_model, folder_name):
-    outcome_model.save(os.path.join(model_folder, folder_name))
+def save_challenge_model_lstm(model_folder, model, folder_name):
+    model.save(os.path.join(model_folder, folder_name))
 
 # Extract features from the data.
 def get_features_2(patient_metadata, recording_metadata, recording_data):
