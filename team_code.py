@@ -17,7 +17,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import joblib
 import tensorflow as tf
 from scipy import stats as st
-
+from sklearn.model_selection import KFold, StratifiedKFold
 # for reproducability
 seed = 1
 np.random.seed(seed)
@@ -52,7 +52,7 @@ def create_model_lstm(input_data, output_type):
 
     return tf.keras.models.Model(inputs, outputs)
 
-def compile_train_model(x_train, y_train, model, output_type):
+def compile_train_model(x_train, y_train, x_val, y_val, model, output_type):
     """
         param:
             x_train: a nd array with 3 dimensions (batch, timesteps, features)
@@ -64,14 +64,15 @@ def compile_train_model(x_train, y_train, model, output_type):
             the trained model
     """
     if output_type == 0:
-        model.compile(loss='binary_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics = ['accuracy'])
+        model.compile(loss='binary_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics=['accuracy'])
     else:
         # convert to one-hot
         y_train = tf.keras.utils.to_categorical(y_train, 5)
+        y_val = tf.keras.utils.to_categorical(y_val, 5)
         # y_train = np.eye(5)[y_train.flatten()]
-        model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics = ['accuracy'])
+        model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics=['accuracy'])
     # model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
-    model.fit(x_train, y_train, epochs=10)
+    model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
     return model
 
 def prepare_label(model_type, patient_metadata, available_signal_data):
@@ -94,8 +95,13 @@ def prepare_label(model_type, patient_metadata, available_signal_data):
     
     return outcomes, cpcs
 
+# average of a list
+def average(lst):
+    return sum(lst)/len(lst)
+
 # Train your model.
 def train_challenge_model(data_folder, model_folder, verbose):
+    # for debugging purpose
     print_flag = 1
     # Find data files.
     if verbose >= 1:
@@ -114,6 +120,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
     if verbose >= 1:
         print('Extracting features and labels from the Challenge data...')
 
+    # list for x datas
     patients_features = list()
     available_signal_datas = list()
     delta_psd_datas = list() 
@@ -121,11 +128,17 @@ def train_challenge_model(data_folder, model_folder, verbose):
     alpha_psd_datas = list() 
     beta_psd_datas = list()
 
+    # list for y datas : outcomes and cpcs
     outcomes = list()
     cpcs = list()
-
     outcomes_random_forest = list()
     cpcs_random_forest = list()
+
+    # this is a list where the index of the list is equal to the current element on the list
+    # say that on the first patient we have 50 hours of eeg recording, 2nd has 30 hours
+    # prefix_sum_index[1] = 50, prefix_sum_index[2] = 50 + 30 = 80
+    prefix_sum_index = list()
+    prefix_sum_index.append(0)
 
     for i in range(num_patients):
         if verbose >= 2:
@@ -140,7 +153,8 @@ def train_challenge_model(data_folder, model_folder, verbose):
         # current_features = get_features_test(patient_metadata, recording_metadata, recording_data)
         # features.append(current_features)
         patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
-
+        # need to reshape??, this is used for k-cross validation
+        # patient_features = patient_features.reshape(1, -1)
         patients_features.append(patient_features)
         available_signal_datas.append(available_signal_data)
         delta_psd_datas.append(delta_psd_data)
@@ -148,21 +162,25 @@ def train_challenge_model(data_folder, model_folder, verbose):
         alpha_psd_datas.append(alpha_psd_data)
         beta_psd_datas.append(beta_psd_data)
 
+        prefix_sum_index.append(prefix_sum_index[i] + available_signal_data.shape[0])
+
         if print_flag == 1:
+            # sanity check
             print("patient features shape: ", patient_features.shape)
             print("available signal shape: ", available_signal_data.shape)
             print("delta psd shape: ", delta_psd_data.shape)
             print("theta psd shape: ", theta_psd_data.shape)
             print("alpha psd shape: ", alpha_psd_data.shape)
             print("beta psd shape: ", beta_psd_data.shape)
+            print('prefix_sum_index', i + 1, prefix_sum_index[i + 1])
 
         # Extract labels.
         try:
             outcome, cpc = prepare_label(model_type=1, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
             outcome_random_forest, cpc_random_forest = prepare_label(model_type=2, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
             outcomes.extend(outcome)
-            outcomes_random_forest.extend(outcome_random_forest)
             cpcs.extend(cpc)
+            outcomes_random_forest.extend(outcome_random_forest)
             cpcs_random_forest.extend(cpc_random_forest)
         except:
             print("model_type has not been implemented, exiting.....")
@@ -193,40 +211,125 @@ def train_challenge_model(data_folder, model_folder, verbose):
         print("outcomes_random_forest", outcomes_random_forest.shape)
         print("cpcs_random_forest", cpcs_random_forest.shape)
 
+    validation_accuracies_outcome = list()
+    validation_losses_outcome = list()
 
-    # Train the models.
-    if verbose >= 1:
-        print('Training the Challenge models on the Challenge data...')
+    validation_accuracies_cpc = list()
+    validation_losses_cpc = list()
 
-    # for reproducible purpose
-    
-    model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
-    model_lstm_outcome.summary()
-    model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, model_lstm_outcome, 0)
-    save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
+    # Split the data into train and validation with k-fold cross validation
+    kf = KFold(n_splits=5)
+    # dummy variable to split the train and val_index
+    for i, (train_index, val_index) in enumerate(kf.split(np.zeros((num_patients, 1)), outcomes_random_forest)):
+        if (print_flag == 1):
+            print("train_index, val_index", train_index, val_index)
+        # prepare x data for training and validation
+        x_train = list()
+        x_val = list()
 
-    # model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
-    # model_lstm_cpc.summary()
-    # model_lstm_cpc = compile_train_model(available_signal_datas, outcomes, model_lstm_cpc, 1)
-    # save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
+        # prepare y data for training and validation
+        y_train_outcome = list()
+        y_val_outcome = list()
+        y_train_cpc = list()
+        y_val_cpc = list()
+        # equivalent on using iloc
+        for idx in val_index:
+            start = prefix_sum_index[idx]
+            end = prefix_sum_index[idx + 1]
+            # use the matrix from [start: end] and concatenate with the next start, next end
+            x_val.append(available_signal_datas[start:end])
+            y_val_outcome.append(outcomes[start:end])
+            y_val_cpc.append(cpcs[start:end])
+
+        for idx in train_index:
+            start = prefix_sum_index[idx]
+            end = prefix_sum_index[idx + 1]
+            # use the matrix from [start: end] and concatenate with the next start, next end
+            x_train.append(available_signal_datas[start:end])
+            y_train_outcome.append(outcomes[start:end])
+            y_train_cpc.append(cpcs[start:end])
+        
+        x_val = np.vstack(x_val)
+        x_train = np.vstack(x_train)
+        y_train_outcome = np.vstack(y_train_outcome)
+        y_val_outcome = np.vstack(y_val_outcome)
+        y_train_cpc = np.vstack(y_train_cpc)
+        y_val_cpc = np.vstack(y_val_cpc)
+
+        if (print_flag == 1):
+            # sanity check
+            print("x_val", x_val.shape)
+            print("x_train", x_train.shape)
+            print("y_train_outcome", y_train_outcome.shape)
+            print("y_val_outcome", y_val_outcome.shape)
+            print("y_train_cpc", y_train_cpc.shape)
+            print("y_val_cpc", y_val_cpc.shape)
+
+
+        # losses and accuracies for k_fold
+
+
+        # Train the models.
+        if verbose >= 1:
+            print('Training the Challenge models on the Challenge data...')
+
+        # # for reproducible purpose
+        # model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
+        # model_lstm_outcome.summary()
+        # model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, model_lstm_outcome, 0)
+        # save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
+        
+        # model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
+        # model_lstm_cpc.summary()
+        # model_lstm_cpc = compile_train_model(available_signal_datas, outcomes, model_lstm_cpc, 1)
+        # save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
+
+        model_lstm_outcome = create_model_lstm(x_train, 0)
+        model_lstm_outcome.summary()
+        model_lstm_outcome = compile_train_model(x_train, y_train_outcome, x_val, y_val_outcome, model_lstm_outcome, 0)
+
+        # save model?
+        # evaluate the model
+        results = model_lstm_outcome.evaluate(x=x_val, y=y_val_outcome)
+        results = dict(zip(model_lstm_outcome.metrics_names, results))
+        
+        validation_accuracies_outcome.append(results['accuracy'])
+        validation_losses_outcome.append(results['loss'])
+        print(i, "- outcome validation accuracy, loss", results['accuracy'], results['loss'])
+        # model_lstm_cpc = create_model_lstm(x_train, 1)
+        # model_lstm_cpc.summary()
+        # model_lstm_cpc = compile_train_model(x_train, y_train_cpc, x_val, y_val_cpc, model_lstm_cpc, 1)
+
+        # results = model_lstm_cpc.evaluate(x=x_val, y=y_val_cpc)
+        # results = dict(zip(model_lstm_cpc.metrics_names, results))
+
+        # validation_accuracies_cpc.append(results['accuracy'])
+        # validation_losses_cpc.append(results['loss'])
+        tf.keras.backend.clear_session()
+        if verbose >= 1:
+            print("Done", i, "training")
+
+    avg_accuracy_outcome = average(validation_accuracies_outcome)
+    avg_loss_outcome = average(validation_losses_outcome)
+    print("avg accuracy:", avg_accuracy_outcome, ", avg loss:", avg_loss_outcome)
 
     # Define parameters for random forest classifier and regressor.
-    n_estimators   = 123  # Number of trees in the forest.
-    max_leaf_nodes = 456  # Maximum number of leaf nodes in each tree.
-    random_state   = 789  # Random state; set for reproducibility.
+    # n_estimators   = 123  # Number of trees in the forest.
+    # max_leaf_nodes = 456  # Maximum number of leaf nodes in each tree.
+    # random_state   = 789  # Random state; set for reproducibility.
 
     # Impute any missing features; use the mean value by default.
-    imputer = SimpleImputer().fit(patients_features)
+    # imputer = SimpleImputer().fit(patients_features)
 
-    # Train the models.
-    patients_features = imputer.transform(patients_features)
-    outcome_model = RandomForestClassifier(
-        n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, outcomes_random_forest.ravel())
-    cpc_model = RandomForestRegressor(
-        n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, cpcs_random_forest.ravel())
-
-    # Save the models.
-    save_challenge_model(model_folder, imputer, outcome_model, cpc_model)
+    # # Train the models.
+    # patients_features = imputer.transform(patients_features)
+    # outcome_model = RandomForestClassifier(
+    #     n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, outcomes_random_forest.ravel())
+    # cpc_model = RandomForestRegressor(
+    #     n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, cpcs_random_forest.ravel())
+    # train the model again with the whole dataset
+    # # Save the models.
+    # save_challenge_model(model_folder, imputer, outcome_model, cpc_model)
 
     if verbose >= 1:
         print('Done.')
