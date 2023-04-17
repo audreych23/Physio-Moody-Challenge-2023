@@ -72,7 +72,7 @@ def compile_train_model(x_train, y_train, x_val, y_val, model, output_type):
         # y_train = np.eye(5)[y_train.flatten()]
         model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics=['accuracy'])
     # model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
-    model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
+    model.fit(x_train, y_train, validation_data=(x_val, y_val), batch_size=64, epochs=10)
     return model
 
 def prepare_label(model_type, patient_metadata, available_signal_data):
@@ -273,20 +273,11 @@ def train_challenge_model(data_folder, model_folder, verbose):
         if verbose >= 1:
             print('Training the Challenge models on the Challenge data...')
 
-        # # for reproducible purpose
-        # model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
-        # model_lstm_outcome.summary()
-        # model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, model_lstm_outcome, 0)
-        # save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
-        
-        # model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
-        # model_lstm_cpc.summary()
-        # model_lstm_cpc = compile_train_model(available_signal_datas, outcomes, model_lstm_cpc, 1)
-        # save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
 
-        model_lstm_outcome = create_model_lstm(x_train, 0)
-        model_lstm_outcome.summary()
-        model_lstm_outcome = compile_train_model(x_train, y_train_outcome, x_val, y_val_outcome, model_lstm_outcome, 0)
+
+        # model_lstm_outcome = create_model_lstm(x_train, 0)
+        # model_lstm_outcome.summary()
+        # model_lstm_outcome = compile_train_model(x_train, y_train_outcome, x_val, y_val_outcome, model_lstm_outcome, 0)
 
         # save model?
         # evaluate the model
@@ -312,6 +303,17 @@ def train_challenge_model(data_folder, model_folder, verbose):
     avg_accuracy_outcome = average(validation_accuracies_outcome)
     avg_loss_outcome = average(validation_losses_outcome)
     print("avg accuracy:", avg_accuracy_outcome, ", avg loss:", avg_loss_outcome)
+
+    # for reproducible purpose
+    model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
+    model_lstm_outcome.summary()
+    model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, 0)
+    save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
+    
+    model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
+    model_lstm_cpc.summary()
+    model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, 1)
+    save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
 
     # Define parameters for random forest classifier and regressor.
     # n_estimators   = 123  # Number of trees in the forest.
