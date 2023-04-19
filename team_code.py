@@ -18,6 +18,7 @@ import joblib
 import tensorflow as tf
 from scipy import stats as st
 from sklearn.model_selection import KFold
+import h5py
 # for reproducability
 seed = 1
 np.random.seed(seed)
@@ -28,19 +29,19 @@ tf.random.set_seed(seed)
 # sess = tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(log_device_placement=True))
 
 # Create 2 logical gpus ***comment this before submission***
-gpus = tf.config.list_physical_devices('GPU')
-if gpus:
-  # Create 2 virtual GPUs with 1GB memory each
-    try:
-        tf.config.set_logical_device_configuration(
-            gpus[1],
-            [tf.config.LogicalDeviceConfiguration(memory_limit=8192),
-            tf.config.LogicalDeviceConfiguration(memory_limit=8192)])
-        logical_gpus = tf.config.list_logical_devices('GPU')
-        print(len(gpus), "Physical GPU,", len(logical_gpus), "Logical GPUs")
-    except RuntimeError as e:
-        # Virtual devices must be set before GPUs have been initialized
-        print(e)
+# gpus = tf.config.list_physical_devices('GPU')
+# if gpus:
+#   # Create 2 virtual GPUs with 1GB memory each
+#     try:
+#         tf.config.set_logical_device_configuration(
+#             gpus[1],
+#             [tf.config.LogicalDeviceConfiguration(memory_limit=1024),
+#             tf.config.LogicalDeviceConfiguration(memory_limit=1024)])
+#         logical_gpus = tf.config.list_logical_devices('GPU')
+#         print(len(gpus), "Physical GPU,", len(logical_gpus), "Logical GPUs")
+#     except RuntimeError as e:
+#         # Virtual devices must be set before GPUs have been initialized
+#         print(e)
 
     
 ################################################################################
@@ -175,6 +176,16 @@ def create_model_lstm(input_data, output_type):
 
     return tf.keras.models.Model(inputs, outputs)
 
+# def save_data():
+#     # changable
+#     data_path = "/mnt/usb/jupyter-audreych/saved_data"
+#     if (not os.path.exists(data_path)):
+#         os.makedirs(data_path)
+    
+#     h5f = h5py.file('available_signal_data', data=available_signal_data)
+
+
+
 def compile_train_model(x_train, y_train, x_val, y_val, model, output_type):
     """
         param:
@@ -280,10 +291,10 @@ def train_challenge_model(data_folder, model_folder, verbose):
         # patient_features = patient_features.reshape(1, -1)
         patients_features.append(patient_features)
         available_signal_datas.append(available_signal_data)
-        delta_psd_datas.append(delta_psd_data)
-        theta_psd_datas.append(theta_psd_data)
-        alpha_psd_datas.append(alpha_psd_data)
-        beta_psd_datas.append(beta_psd_data)
+        # delta_psd_datas.append(delta_psd_data)
+        # theta_psd_datas.append(theta_psd_data)
+        # alpha_psd_datas.append(alpha_psd_data)
+        # beta_psd_datas.append(beta_psd_data)
 
         prefix_sum_index.append(prefix_sum_index[i] + available_signal_data.shape[0])
 
@@ -311,10 +322,10 @@ def train_challenge_model(data_folder, model_folder, verbose):
 
     patients_features = np.vstack(patients_features)
     available_signal_datas = np.vstack(available_signal_datas)
-    delta_psd_datas = np.vstack(delta_psd_datas)
-    theta_psd_datas = np.vstack(theta_psd_datas)
-    alpha_psd_datas = np.vstack(alpha_psd_datas)
-    beta_psd_datas = np.vstack(beta_psd_datas)
+    # delta_psd_datas = np.vstack(delta_psd_datas)
+    # theta_psd_datas = np.vstack(theta_psd_datas)
+    # alpha_psd_datas = np.vstack(alpha_psd_datas)
+    # beta_psd_datas = np.vstack(beta_psd_datas)
 
     outcomes = np.vstack(outcomes)
     cpcs = np.vstack(cpcs)
@@ -325,10 +336,10 @@ def train_challenge_model(data_folder, model_folder, verbose):
         # sanity check
         print("patients features shape", patients_features.shape)
         print("available signal datas shape", available_signal_datas.shape)
-        print("delta psd datas shape", delta_psd_datas.shape)
-        print("theta psd datas shape", theta_psd_datas.shape)
-        print("alpha psd datas shape", alpha_psd_datas.shape)
-        print("beta psd datas", beta_psd_datas.shape)
+        # print("delta psd datas shape", delta_psd_datas.shape)
+        # print("theta psd datas shape", theta_psd_datas.shape)
+        # print("alpha psd datas shape", alpha_psd_datas.shape)
+        # print("beta psd datas", beta_psd_datas.shape)
         print("outcomes shape", outcomes.shape)
         print("cpcs shape", cpcs.shape)
         print("outcomes_random_forest", outcomes_random_forest.shape)
@@ -339,19 +350,31 @@ def train_challenge_model(data_folder, model_folder, verbose):
 
     # train with whole data
     # for reproducible purpose
-    tf.debugging.set_log_device_placement(True)
-    gpus = tf.config.list_logical_devices('GPU')
-    strategy = tf.distribute.MirroredStrategy(gpus)
-    with strategy.scope():
-        model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
-        model_lstm_outcome.summary()
-        model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, 0)
-        save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
+    # with gpu
+    # tf.debugging.set_log_device_placement(True)
+    # gpus = tf.config.list_logical_devices('GPU')
+    # strategy = tf.distribute.MirroredStrategy(gpus)
+    # with strategy.scope():
+    #     model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
+    #     model_lstm_outcome.summary()
+    #     model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, 0)
+    #     save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
         
-        model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
-        model_lstm_cpc.summary()
-        model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, 1)
-        save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
+    #     model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
+    #     model_lstm_cpc.summary()
+    #     model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, 1)
+    #     save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
+    
+    # without gpu
+    model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
+    model_lstm_outcome.summary()
+    model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, 0)
+    save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
+    
+    model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
+    model_lstm_cpc.summary()
+    model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, 1)
+    save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
 
     # Define parameters for random forest classifier and regressor.
     # n_estimators   = 123  # Number of trees in the forest.
@@ -641,6 +664,8 @@ def get_features(patient_metadata, recording_metadata, recording_data):
             theta_psd_data.append(theta_psd)
             alpha_psd_data.append(alpha_psd)
             beta_psd_data.append(beta_psd)
+        else:
+            singal_data = np.zeros()
             
 
     if len(available_signal_data) > 0:
