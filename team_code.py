@@ -574,6 +574,86 @@ def get_features_2(patient_metadata, recording_metadata, recording_data):
 
     return features
 
+def create_model(
+    input_channels:int,
+    time_points:int,
+    output_channels:int,
+    n_estimators:int=8,
+    dw_filters:int=8,
+    cn_filters:int=16,
+    sp_filters:int=32,  
+):  
+    """ EEGNet + RNN Model.
+    input_channels: number of data's channel
+    time_points: cumulated data's total time point
+    output_channels: number of output node
+    n_estimators: number of RNN cells
+    dw_filters: number of filters for DepthwiseConv2D
+    cn_filters: number of filters for Conv2D (1st filter from the paper EEGNet)
+    sp_filters: number of filters for SeparableConv2D (2nd filter from the paper EEGNet)7\
+    
+    return  model: tf.keras.Model
+    """
+    # Define input layer
+    inputs = tf.keras.layers.Input(
+        shape=(
+            input_channels, 
+            time_points,
+        )
+    )
+    cn = tf.keras.layers.Reshape((input_channels, time_points, 1))(inputs)
+    cn = tf.keras.layers.Conv2D(filters=cn_filters, 
+            kernel_size=(1, 64), 
+            padding='same', 
+            activation='linear',
+            use_bias=False,
+            )(cn)
+    cn = tf.keras.layers.BatchNormalization()(cn)
+
+    # Depthwise convolution layer
+    dw = tf.keras.layers.DepthwiseConv2D(kernel_size=(input_channels, 1),
+                        padding='valid',
+                        depth_multiplier=dw_filters,
+                        depthwise_constraint=tf.keras.constraints.max_norm(1.),
+                        activation='linear',
+                        use_bias=False,
+                        )(cn)
+    dw = tf.keras.layers.BatchNormalization()(dw)
+    dw = tf.keras.layers.Activation('elu')(dw)
+    dw = tf.keras.layers.AveragePooling2D(pool_size=(1, 4),
+                        padding='valid',
+                        )(dw)
+    
+    # Separable convolution layer
+    sp = tf.keras.layers.SeparableConv2D(filters=sp_filters,
+                        kernel_size=(1, 8),
+                        padding='same',
+                        activation='linear',
+                        use_bias=False,
+                        )(dw)
+    sp = tf.keras.layers.BatchNormalization()(sp)
+    sp = tf.keras.layers.Activation('elu')(sp)
+
+    # RNN layer
+    shape = tuple([x for x in sp.shape.as_list() if x != 1 and x is not None])
+    sp = tf.keras.layers.Reshape(shape)(sp)
+    sp = tf.keras.layers.GRU(n_estimators, return_sequences=True)(sp)
+    sp = tf.keras.layers.Dropout(0.5)(sp)
+
+    # Flatten output
+    sp = tf.keras.layers.Flatten()(sp)
+
+    # Output layer
+    outputs = tf.keras.layers.Dense(output_channels,
+                    activation='softmax',
+                    kernel_constraint=tf.keras.constraints.max_norm(0.25),
+                    )(sp)
+
+    # Create the model
+    model = tf.keras.Model(inputs=inputs, outputs=outputs)
+
+    return model
+
 # Extract features from the data.
 def get_features(patient_metadata, recording_metadata, recording_data):
     """ Get the Timestamps Data.
@@ -710,3 +790,4 @@ def get_features(patient_metadata, recording_metadata, recording_data):
     #     print("features shape:", features.shape)
     # Combine the features from the patient metadata and the recording data and metadata.
     return patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data
+
