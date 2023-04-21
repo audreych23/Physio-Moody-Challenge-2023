@@ -197,16 +197,23 @@ def compile_train_model(x_train, y_train, x_val, y_val, model, output_type):
         returns 
             the trained model
     """
-    if output_type == 0:
-        model.compile(loss='binary_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics=['accuracy'])
+    if output_type == "outcome":
+        y_train = tf.keras.utils.to_categorical(y_train, 2)
+        if (y_val != None):
+            y_val = tf.keras.utils.to_categorical(y_val, 2)
     else:
         # convert to one-hot
         y_train = tf.keras.utils.to_categorical(y_train, 5)
-        y_val = tf.keras.utils.to_categorical(y_val, 5)
+        if (y_val != None):
+            y_val = tf.keras.utils.to_categorical(y_val, 5)
         # y_train = np.eye(5)[y_train.flatten()]
-        model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics=['accuracy'])
     # model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
-    model.fit(x_train, y_train, validation_data=(x_val, y_val), batch_size=32, epochs=10)
+    if (x_val == None and y_val == None):
+        model.fit(x_train, y_train, batch_size=32, epochs=10)
+    else:
+        model.fit(x_train, y_train, validation_data=(x_val, y_val), batch_size=32, epochs=10)
+
     return model
 
 def prepare_label(model_type, patient_metadata, available_signal_data):
@@ -364,17 +371,28 @@ def train_challenge_model(data_folder, model_folder, verbose):
     #     model_lstm_cpc.summary()
     #     model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, 1)
     #     save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
-    
+
+    # available signal datas has to be reshape for this model 
+    available_signal_datas = available_signal_datas.reshape((available_signal_datas.shape[0], available_signal_datas.shape[2], available_signal_data.shape[1]))
+    model_outcome = create_model(available_signal_datas.shape[1], available_signal_datas.shape[2], 2)
+    model_outcome.summary()
+    model_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_outcome, "outcome")
+    save_challenge_model_lstm(model_folder, model_outcome, "model_outcome")
+
+    model_cpc = create_model(available_signal_datas.shape[1], available_signal_datas.shape[2], 5)
+    model_cpc.summary()
+    model_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_cpc, "cpc")
+    save_challenge_model_lstm(model_folder, model_cpc, "model_cpc")
     # without gpu
-    model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
-    model_lstm_outcome.summary()
-    model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, 0)
-    save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
+    # model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
+    # model_lstm_outcome.summary()
+    # model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, 0)
+    # save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
     
-    model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
-    model_lstm_cpc.summary()
-    model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, 1)
-    save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
+    # model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
+    # model_lstm_cpc.summary()
+    # model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, 1)
+    # save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
 
     # Define parameters for random forest classifier and regressor.
     # n_estimators   = 123  # Number of trees in the forest.
@@ -439,7 +457,8 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     # cpc = cpc_model.predict(patient_features)[0]
 
     # outcome = np.round(lstm_model_outcome.predict(available_signal_data))
-    outcome_probability = lstm_model_outcome.predict(available_signal_data).flatten()
+    outcome_probability = lstm_model_outcome.predict(available_signal_data)
+    outcome_probability = np.argmax(outcome_probability, axis=1).astype(np.int64)
     outcome_probability = np.average(outcome_probability)
     outcome = np.round(outcome_probability)
     # outcome_probability = st.mode(outcome, keepdims=False)
@@ -581,7 +600,7 @@ def create_model(
     n_estimators:int=8,
     dw_filters:int=8,
     cn_filters:int=16,
-    sp_filters:int=32,  
+    sp_filters:int=32
 ):  
     """ EEGNet + RNN Model.
     input_channels: number of data's channel
@@ -648,7 +667,6 @@ def create_model(
                     activation='softmax',
                     kernel_constraint=tf.keras.constraints.max_norm(0.25),
                     )(sp)
-
     # Create the model
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
 
@@ -744,8 +762,6 @@ def get_features(patient_metadata, recording_metadata, recording_data):
             theta_psd_data.append(theta_psd)
             alpha_psd_data.append(alpha_psd)
             beta_psd_data.append(beta_psd)
-        else:
-            singal_data = np.zeros()
             
 
     if len(available_signal_data) > 0:
