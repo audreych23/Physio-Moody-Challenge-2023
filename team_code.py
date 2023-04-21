@@ -294,35 +294,38 @@ def train_challenge_model(data_folder, model_folder, verbose):
         # current_features = get_features_test(patient_metadata, recording_metadata, recording_data)
         # features.append(current_features)
         patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
-        # need to reshape??, this is used for k-cross validation
-        # patient_features = patient_features.reshape(1, -1)
-        patients_features.append(patient_features)
-        available_signal_datas.append(available_signal_data)
-        # delta_psd_datas.append(delta_psd_data)
-        # theta_psd_datas.append(theta_psd_data)
-        # alpha_psd_datas.append(alpha_psd_data)
-        # beta_psd_datas.append(beta_psd_data)
+        if not np.isnan(available_signal_data[0][0][0]):
+            # need to reshape??, this is used for k-cross validation
+            # patient_features = patient_features.reshape(1, -1)
+            patients_features.append(patient_features)
+            available_signal_datas.append(available_signal_data)
+            # delta_psd_datas.append(delta_psd_data)
+            # theta_psd_datas.append(theta_psd_data)
+            # alpha_psd_datas.append(alpha_psd_data)
+            # beta_psd_datas.append(beta_psd_data)
+            # ignore this for now
+            # prefix_sum_index.append(prefix_sum_index[i] + available_signal_data.shape[0])
 
-        prefix_sum_index.append(prefix_sum_index[i] + available_signal_data.shape[0])
-
-        if print_flag == 1:
-            # sanity check
-            print("patient features shape: ", patient_features.shape)
-            print("available signal shape: ", available_signal_data.shape)
-            print("delta psd shape: ", delta_psd_data.shape)
-            print("theta psd shape: ", theta_psd_data.shape)
-            print("alpha psd shape: ", alpha_psd_data.shape)
-            print("beta psd shape: ", beta_psd_data.shape)
-            print('prefix_sum_index', i + 1, prefix_sum_index[i + 1])
+        # if print_flag == 1:
+        #     # sanity check
+        #     print("patient features shape: ", patient_features.shape)
+        #     print("available signal shape: ", available_signal_data.shape)
+        #     print("delta psd shape: ", delta_psd_data.shape)
+        #     print("theta psd shape: ", theta_psd_data.shape)
+        #     print("alpha psd shape: ", alpha_psd_data.shape)
+        #     print("beta psd shape: ", beta_psd_data.shape)
+        #     print('prefix_sum_index', i + 1, prefix_sum_index[i + 1])
 
         # Extract labels.
         try:
-            outcome, cpc = prepare_label(model_type=1, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
-            outcome_random_forest, cpc_random_forest = prepare_label(model_type=2, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
-            outcomes.extend(outcome)
-            cpcs.extend(cpc)
-            outcomes_random_forest.extend(outcome_random_forest)
-            cpcs_random_forest.extend(cpc_random_forest)
+            if not np.isnan(available_signal_data[0][0][0]):
+                outcome, cpc = prepare_label(model_type=1, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
+                outcome_random_forest, cpc_random_forest = prepare_label(model_type=2, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
+                outcomes.extend(outcome)
+                cpcs.extend(cpc)
+                outcomes_random_forest.extend(outcome_random_forest)
+                cpcs_random_forest.extend(cpc_random_forest)
+
         except:
             print("model_type has not been implemented, exiting.....")
             exit(1)
@@ -457,17 +460,23 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     # cpc = cpc_model.predict(patient_features)[0]
 
     # outcome = np.round(lstm_model_outcome.predict(available_signal_data))
-    outcome_probability = lstm_model_outcome.predict(available_signal_data)
-    outcome_probability = np.argmax(outcome_probability, axis=1).astype(np.int64)
-    outcome_probability = np.average(outcome_probability)
-    outcome = np.round(outcome_probability)
+    if not np.isnan(available_signal_data[0][0][0]):
+        outcome_probability = lstm_model_outcome.predict(available_signal_data)
+        outcome_probability = np.argmax(outcome_probability, axis=1).astype(np.int64)
+        outcome_probability = np.average(outcome_probability)
+        outcome = np.round(outcome_probability)
+    else:
+        outcome_probability = np.random.random()
+        outcome = np.round(outcome_probability)
     # outcome_probability = st.mode(outcome, keepdims=False)
     # convert mode object to integer
     # outcome_probability = int(outcome_probability[0][0])
-
-    cpc = lstm_model_cpc.predict(available_signal_data)
-    cpc = np.argmax(cpc, axis=1).astype(np.int64)
-    cpc = np.average(cpc)
+    if not np.isnan(available_signal_data[0][0][0]):
+        cpc = lstm_model_cpc.predict(available_signal_data)
+        cpc = np.argmax(cpc, axis=1).astype(np.int64)
+        cpc = np.average(cpc)
+    else:
+        cpc = np.random.uniform(1, 5)
     
     # Ensure that the CPC score is between (or equal to) 1 and 5.
     cpc = np.clip(cpc, 1, 5)
@@ -787,6 +796,8 @@ def get_features(patient_metadata, recording_metadata, recording_data):
 
     else:
         available_signal_data = delta_psd_data = theta_psd_data = alpha_psd_data = beta_psd_data = np.hstack(float('nan') * np.ones(num_channels))
+        available_signal_data = np.empty((1, 30000, 18))
+        available_signal_data.fill(np.NaN)
     
     # DEBUG
     # print("available_signal_data:", available_signal_data.shape) 
