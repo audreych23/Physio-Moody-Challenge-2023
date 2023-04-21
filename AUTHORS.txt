@@ -1,0 +1,6 @@
+# Names should be added to this file as:
+# Name or Organization (github) <email address>
+# The email address is not required for organizations.
+
+Audrey Suhadinata (audreych23) <audreychung@gapp.nthu.edu.tw>
+Kevin Richardson Halim (kevin-rh) <kevinrichardsonhalim@gmail.com>
