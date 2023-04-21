@@ -207,7 +207,7 @@ def compile_train_model(x_train, y_train, x_val, y_val, model, output_type):
         if (y_val != None):
             y_val = tf.keras.utils.to_categorical(y_val, 5)
         # y_train = np.eye(5)[y_train.flatten()]
-    model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.00001), metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001), metrics=['accuracy'])
     # model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
     if (x_val == None and y_val == None):
         model.fit(x_train, y_train, batch_size=32, epochs=10)
@@ -225,7 +225,8 @@ def prepare_label(model_type, patient_metadata, available_signal_data):
         current_cpc = get_cpc(patient_metadata)
         for i in range(available_signal_data.shape[0]):
             outcomes.append(current_outcome)
-            cpcs.append(current_cpc)
+            # force it to be 0 to 4 cpc then reconvert it later
+            cpcs.append(current_cpc - 1)
     elif model_type == 2:
         current_outcome = get_outcome(patient_metadata)
         current_cpc = get_cpc(patient_metadata)
@@ -294,10 +295,10 @@ def train_challenge_model(data_folder, model_folder, verbose):
         # current_features = get_features_test(patient_metadata, recording_metadata, recording_data)
         # features.append(current_features)
         patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
+        patients_features.append(patient_features)
         if not np.isnan(available_signal_data[0][0][0]):
             # need to reshape??, this is used for k-cross validation
             # patient_features = patient_features.reshape(1, -1)
-            patients_features.append(patient_features)
             available_signal_datas.append(available_signal_data)
             # delta_psd_datas.append(delta_psd_data)
             # theta_psd_datas.append(theta_psd_data)
@@ -320,11 +321,12 @@ def train_challenge_model(data_folder, model_folder, verbose):
         try:
             if not np.isnan(available_signal_data[0][0][0]):
                 outcome, cpc = prepare_label(model_type=1, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
-                outcome_random_forest, cpc_random_forest = prepare_label(model_type=2, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
                 outcomes.extend(outcome)
                 cpcs.extend(cpc)
-                outcomes_random_forest.extend(outcome_random_forest)
-                cpcs_random_forest.extend(cpc_random_forest)
+            
+            outcome_random_forest, cpc_random_forest = prepare_label(model_type=2, patient_metadata=patient_metadata, available_signal_data=available_signal_data) 
+            outcomes_random_forest.extend(outcome_random_forest)
+            cpcs_random_forest.extend(cpc_random_forest)
 
         except:
             print("model_type has not been implemented, exiting.....")
@@ -398,22 +400,22 @@ def train_challenge_model(data_folder, model_folder, verbose):
     save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
 
     # Define parameters for random forest classifier and regressor.
-    # n_estimators   = 123  # Number of trees in the forest.
-    # max_leaf_nodes = 456  # Maximum number of leaf nodes in each tree.
-    # random_state   = 789  # Random state; set for reproducibility.
+    n_estimators   = 128  # Number of trees in the forest.
+    max_leaf_nodes = 512  # Maximum number of leaf nodes in each tree.
+    random_state   = 1  # Random state; set for reproducibility.
 
     # Impute any missing features; use the mean value by default.
-    # imputer = SimpleImputer().fit(patients_features)
+    imputer = SimpleImputer().fit(patients_features)
 
     # # Train the models.
-    # patients_features = imputer.transform(patients_features)
-    # outcome_model = RandomForestClassifier(
-    #     n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, outcomes_random_forest.ravel())
-    # cpc_model = RandomForestRegressor(
-    #     n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, cpcs_random_forest.ravel())
+    patients_features = imputer.transform(patients_features)
+    outcome_model = RandomForestClassifier(
+        n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, outcomes_random_forest.ravel())
+    cpc_model = RandomForestRegressor(
+        n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, cpcs_random_forest.ravel())
     # train the model again with the whole dataset
-    # # Save the models.
-    # save_challenge_model(model_folder, imputer, outcome_model, cpc_model)
+    # Save the models.
+    save_challenge_model(model_folder, imputer, outcome_model, cpc_model)
 
     if verbose >= 1:
         print('Done.')
@@ -421,7 +423,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
 # Load your trained models. This function is *required*. You should edit this function to add your code, but do *not* change the
 # arguments of this function.
 def load_challenge_models(model_folder, verbose):
-    # filename = os.path.join(model_folder, 'models.sav')
+    filename = os.path.join(model_folder, 'models.sav')
     foldername_lstm_outcome = os.path.join(model_folder, 'model_outcome')
     foldername_lstm_cpc = os.path.join(model_folder, 'model_cpc')
     lstm_outcome = tf.keras.models.load_model(foldername_lstm_outcome)
@@ -429,20 +431,17 @@ def load_challenge_models(model_folder, verbose):
     lstm_cpc = tf.keras.models.load_model(foldername_lstm_cpc)
     lstm_cpc.summary()
     # return joblib.load(filename), lstm_outcome, lstm_cpc 
-    return lstm_outcome, lstm_cpc
+    return lstm_outcome, lstm_cpc, joblib.load(filename)
 
 # Run your trained models. This function is *required*. You should edit this function to add your code, but do *not* change the
 # arguments of this function.
 def run_challenge_models(models, data_folder, patient_id, verbose):
-    # random_tree_model = models[0]
-    # lstm_model_outcome = models[1]
-    # lstm_model_cpc = models[2]
-
     lstm_model_outcome = models[0]
     lstm_model_cpc = models[1]
-    # imputer = random_tree_model['imputer']
-    # outcome_model = random_tree_model['outcome_model']
-    # cpc_model = random_tree_model['cpc_model']
+    random_tree_model = models[2]
+    imputer = random_tree_model['imputer']
+    outcome_model = random_tree_model['outcome_model']
+    cpc_model = random_tree_model['cpc_model']
 
     # Load data.
     patient_metadata, recording_metadata, recording_data = load_challenge_data(data_folder, patient_id)
@@ -452,7 +451,7 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     patient_features = patient_features.reshape(1, -1)
 
     # Impute missing data.
-    # patient_features = imputer.transform(patient_features)
+    patient_features = imputer.transform(patient_features)
 
     # Apply models to features.
     # outcome = outcome_model.predict(patient_features)[0]
@@ -466,17 +465,22 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
         outcome_probability = np.average(outcome_probability)
         outcome = np.round(outcome_probability)
     else:
-        outcome_probability = np.random.random()
-        outcome = np.round(outcome_probability)
+        # use random forest model if there are no eeg data
+        outcome = outcome_model.predict(patient_features)[0]
+        outcome_probability = outcome_model.predict_proba(patient_features)[0, 1]
+        # outcome_probability = np.random.random()
+        # outcome = np.round(outcome_probability)
     # outcome_probability = st.mode(outcome, keepdims=False)
     # convert mode object to integer
     # outcome_probability = int(outcome_probability[0][0])
     if not np.isnan(available_signal_data[0][0][0]):
         cpc = lstm_model_cpc.predict(available_signal_data)
-        cpc = np.argmax(cpc, axis=1).astype(np.int64)
+        # reconvert to 1 - 5 cpc
+        cpc = np.argmax(cpc, axis=1).astype(np.int64) + 1
         cpc = np.average(cpc)
     else:
-        cpc = np.random.uniform(1, 5)
+        # use random forest model if there is no eeg data
+        cpc = cpc_model.predict(patient_features)[0]
     
     # Ensure that the CPC score is between (or equal to) 1 and 5.
     cpc = np.clip(cpc, 1, 5)
