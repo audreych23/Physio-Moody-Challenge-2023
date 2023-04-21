@@ -169,8 +169,8 @@ def create_model_lstm(input_data, output_type):
     x = tf.keras.layers.LSTM(4)(inputs)
     x = tf.keras.layers.Flatten()(x)
     x = tf.keras.layers.Dense(8, activation='relu')(x)
-    if output_type == 0:
-        outputs = tf.keras.layers.Dense(1, activation='sigmoid')(x)
+    if output_type == "outcome":
+        outputs = tf.keras.layers.Dense(2, activation='softmax')(x)
     else:
         outputs = tf.keras.layers.Dense(5, activation='softmax')(x)
 
@@ -373,26 +373,26 @@ def train_challenge_model(data_folder, model_folder, verbose):
     #     save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
 
     # available signal datas has to be reshape for this model 
-    available_signal_datas = available_signal_datas.reshape((available_signal_datas.shape[0], available_signal_datas.shape[2], available_signal_data.shape[1]))
-    model_outcome = create_model(available_signal_datas.shape[1], available_signal_datas.shape[2], 2)
-    model_outcome.summary()
-    model_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_outcome, "outcome")
-    save_challenge_model_lstm(model_folder, model_outcome, "model_outcome")
+    # available_signal_datas = available_signal_datas.reshape((available_signal_datas.shape[0], available_signal_datas.shape[2], available_signal_data.shape[1]))
+    # model_outcome = create_model(available_signal_datas.shape[1], available_signal_datas.shape[2], 2)
+    # model_outcome.summary()
+    # model_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_outcome, "outcome")
+    # save_challenge_model_lstm(model_folder, model_outcome, "model_outcome")
 
-    model_cpc = create_model(available_signal_datas.shape[1], available_signal_datas.shape[2], 5)
-    model_cpc.summary()
-    model_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_cpc, "cpc")
-    save_challenge_model_lstm(model_folder, model_cpc, "model_cpc")
+    # model_cpc = create_model(available_signal_datas.shape[1], available_signal_datas.shape[2], 5)
+    # model_cpc.summary()
+    # model_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_cpc, "cpc")
+    # save_challenge_model_lstm(model_folder, model_cpc, "model_cpc")
     # without gpu
-    # model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
-    # model_lstm_outcome.summary()
-    # model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, 0)
-    # save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
+    model_lstm_outcome = create_model_lstm(available_signal_datas, "outcome")
+    model_lstm_outcome.summary()
+    model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, "outcome")
+    save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
     
-    # model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
-    # model_lstm_cpc.summary()
-    # model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, 1)
-    # save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
+    model_lstm_cpc = create_model_lstm(available_signal_datas, "cpc")
+    model_lstm_cpc.summary()
+    model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, "cpc")
+    save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
 
     # Define parameters for random forest classifier and regressor.
     # n_estimators   = 123  # Number of trees in the forest.
