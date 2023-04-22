@@ -19,6 +19,7 @@ import tensorflow as tf
 from scipy import stats as st
 from sklearn.model_selection import KFold
 import h5py
+import gc
 # for reproducability
 seed = 1
 np.random.seed(seed)
@@ -111,11 +112,11 @@ def k_fold_cross_validation(available_signal_datas, outcomes, cpcs, prefix_sum_i
         if print_flag >= 1:
             print('Training the Challenge models on the Challenge data...')
 
-
+        # unusable right now don't call this function !
         # model_lstm_outcome
         model_lstm_outcome = create_model_lstm(x_train, 0)
         model_lstm_outcome.summary()
-        model_lstm_outcome = compile_train_model(x_train, y_train_outcome, x_val, y_val_outcome, model_lstm_outcome, 0)
+        # model_lstm_outcome = compile_model(x_train, y_train_outcome, x_val, y_val_outcome, model_lstm_outcome, 0)
 
         # evaluate the model
         results = model_lstm_outcome.evaluate(x=x_val, y=y_val_outcome)
@@ -128,7 +129,7 @@ def k_fold_cross_validation(available_signal_datas, outcomes, cpcs, prefix_sum_i
         # model_lstm_cpc
         model_lstm_cpc = create_model_lstm(x_train, 1)
         model_lstm_cpc.summary()
-        model_lstm_cpc = compile_train_model(x_train, y_train_cpc, x_val, y_val_cpc, model_lstm_cpc, 1)
+        # model_lstm_cpc = compile_model(x_train, y_train_cpc, x_val, y_val_cpc, model_lstm_cpc, 1)
 
         results = model_lstm_cpc.evaluate(x=x_val, y=y_val_cpc)
         results = dict(zip(model_lstm_cpc.metrics_names, results))
@@ -184,16 +185,15 @@ def create_model_lstm(input_data, output_type):
     
 #     h5f = h5py.file('available_signal_data', data=available_signal_data)
 
-
-
-def compile_train_model(x_train, y_train, x_val, y_val, model, output_type):
+def train_model(model, x_train, y_train, x_val=None, y_val=None, output_type="cpc", batch_size=8, epochs=2):
     """
         param:
             x_train: a nd array with 3 dimensions (batch, timesteps, features)
             y_train: a nd array with 2 dimensions (batch, 1)
-            x_val?,y_val?
+            x_val: None if there is no validation data default None
+            y_val: None if there is no validation data default None
             model : the model you want to train
-            output_type: 0 or 1, where 0 is outcome and 1 is cpc 
+            output_type: a string of "cpc" or "outcome"
         returns 
             the trained model
     """
@@ -206,15 +206,28 @@ def compile_train_model(x_train, y_train, x_val, y_val, model, output_type):
         y_train = tf.keras.utils.to_categorical(y_train, 5)
         if (y_val != None):
             y_val = tf.keras.utils.to_categorical(y_val, 5)
-        # y_train = np.eye(5)[y_train.flatten()]
-    model.compile(loss='categorical_crossentropy', optimizer=tf.keras.optimizers.Adam(learning_rate=0.0001), metrics=['accuracy'])
-    # model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
-    if (x_val == None and y_val == None):
-        model.fit(x_train, y_train, batch_size=32, epochs=10)
+    if (y_val != None):
+        model.fit(x_train, y_train, validation_data=(x_val, y_val), batch_size=batch_size, epochs=epochs)
     else:
-        model.fit(x_train, y_train, validation_data=(x_val, y_val), batch_size=32, epochs=10)
-
+        model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs)
+    
     return model
+    
+
+def compile_model(model, lr=0.00001, loss='categorical_crossentropy', metrics=['accuracy']):
+    """
+        param:
+            model: the model wish to be compiled
+            lr : learning_rate
+            loss : the loss function for training model
+            metrics : the metrics to evaluate the model
+        returns
+            the model compiled
+    """
+    model.compile(loss=loss, optimizer=tf.keras.optimizers.Adam(learning_rate=lr), metrics=metrics)
+    return model
+    # model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
+    
 
 def prepare_label(model_type, patient_metadata, available_signal_data):
     # model type is an integer from 1, 2, 3
@@ -282,6 +295,18 @@ def train_challenge_model(data_folder, model_folder, verbose):
     prefix_sum_index = list()
     prefix_sum_index.append(0)
 
+    num_patients_stored = 0
+    # model creation here : input dummy shape 
+    model_lstm_outcome = create_model_lstm(np.zeros((1, 30000, 18)), "outcome")
+    model_lstm_outcome.summary()
+    model_lstm_outcome = compile_model(model_lstm_outcome)
+    
+    model_lstm_cpc = create_model_lstm(np.zeros((1, 30000, 18)), "cpc")
+    model_lstm_cpc.summary()
+    model_lstm_cpc = compile_model(model_lstm_cpc)
+
+    if verbose >= 1:
+        print('Training the Challenge models on the Challenge data...')
     for i in range(num_patients):
         if verbose >= 2:
             print('    {}/{}...'.format(i+1, num_patients))
@@ -300,6 +325,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
             # need to reshape??, this is used for k-cross validation
             # patient_features = patient_features.reshape(1, -1)
             available_signal_datas.append(available_signal_data)
+            num_patients_stored += 1
             # delta_psd_datas.append(delta_psd_data)
             # theta_psd_datas.append(theta_psd_data)
             # alpha_psd_datas.append(alpha_psd_data)
@@ -331,34 +357,48 @@ def train_challenge_model(data_folder, model_folder, verbose):
         except:
             print("model_type has not been implemented, exiting.....")
             exit(1)
+        
+        if (num_patients_stored % 5 == 0):
+            available_signal_datas = np.vstack(available_signal_datas)
+            outcomes = np.vstack(outcomes)
+            cpcs = np.vstack(cpcs)
 
-    patients_features = np.vstack(patients_features)
-    available_signal_datas = np.vstack(available_signal_datas)
+            # train the model
+            model_lstm_outcome = train_model(model_lstm_outcome, available_signal_datas, outcomes, None, None, "outcome")
+            model_lstm_cpc = train_model(model_lstm_cpc, available_signal_datas, cpcs, None, None, "cpc")
+            
+            # clear the array
+            available_signal_datas = list()
+            outcomes = list()
+            cpcs = list()
+            gc.collect()
+
     # delta_psd_datas = np.vstack(delta_psd_datas)
     # theta_psd_datas = np.vstack(theta_psd_datas)
     # alpha_psd_datas = np.vstack(alpha_psd_datas)
     # beta_psd_datas = np.vstack(beta_psd_datas)
-
-    outcomes = np.vstack(outcomes)
-    cpcs = np.vstack(cpcs)
+    if (len(available_signal_datas) != 0):
+        available_signal_datas = np.vstack(available_signal_datas)
+        outcomes = np.vstack(outcomes)
+        cpcs = np.vstack(cpcs)
+    patients_features = np.vstack(patients_features)
+    
     outcomes_random_forest = np.vstack(outcomes_random_forest)
     cpcs_random_forest = np.vstack(cpcs_random_forest)
 
-    if (print_flag == 1):
-        # sanity check
-        print("patients features shape", patients_features.shape)
-        print("available signal datas shape", available_signal_datas.shape)
-        # print("delta psd datas shape", delta_psd_datas.shape)
-        # print("theta psd datas shape", theta_psd_datas.shape)
-        # print("alpha psd datas shape", alpha_psd_datas.shape)
-        # print("beta psd datas", beta_psd_datas.shape)
-        print("outcomes shape", outcomes.shape)
-        print("cpcs shape", cpcs.shape)
-        print("outcomes_random_forest", outcomes_random_forest.shape)
-        print("cpcs_random_forest", cpcs_random_forest.shape)
-
-    if verbose >= 1:
-        print('Training the Challenge models on the Challenge data...')
+    # if (print_flag == 1):
+    #     # sanity check
+    #     print("patients features shape", patients_features.shape)
+    #     if (len(available_signal_datas) != 0):
+    #     print("available signal datas shape", available_signal_datas.shape)
+    #     # print("delta psd datas shape", delta_psd_datas.shape)
+    #     # print("theta psd datas shape", theta_psd_datas.shape)
+    #     # print("alpha psd datas shape", alpha_psd_datas.shape)
+    #     # print("beta psd datas", beta_psd_datas.shape)
+    #     print("outcomes shape", outcomes.shape)
+    #     print("cpcs shape", cpcs.shape)
+    #     print("outcomes_random_forest", outcomes_random_forest.shape)
+    #     print("cpcs_random_forest", cpcs_random_forest.shape)
 
     # train with whole data
     # for reproducible purpose
@@ -389,14 +429,18 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # model_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_cpc, "cpc")
     # save_challenge_model_lstm(model_folder, model_cpc, "model_cpc")
     # without gpu
-    model_lstm_outcome = create_model_lstm(available_signal_datas, "outcome")
-    model_lstm_outcome.summary()
-    model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, "outcome")
+    # model_lstm_outcome = create_model_lstm(available_signal_datas, "outcome")
+    # model_lstm_outcome.summary()
+    # model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, "outcome")
+    if (available_signal_datas.size != 0):
+        model_lstm_outcome = train_model(model_lstm_outcome, available_signal_datas, outcomes, None, None, "outcome")
     save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
     
-    model_lstm_cpc = create_model_lstm(available_signal_datas, "cpc")
-    model_lstm_cpc.summary()
-    model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, "cpc")
+    # model_lstm_cpc = create_model_lstm(available_signal_datas, "cpc")
+    # model_lstm_cpc.summary()
+    # model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, "cpc")
+    if (available_signal_datas.size != 0):
+        model_lstm_cpc = train_model(model_lstm_cpc, available_signal_datas, cpcs, None, None, "cpc")
     save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
 
     # Define parameters for random forest classifier and regressor.
