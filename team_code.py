@@ -184,8 +184,8 @@ def create_model_lstm(input_data, output_type):
 #         os.makedirs(data_path)
     
 #     h5f = h5py.file('available_signal_data', data=available_signal_data)
-
-def train_model(model, x_train, y_train, x_val=None, y_val=None, output_type="cpc", batch_size=8, epochs=2):
+# modify hyper parameter here, and the amount of data to be processed can also be modifed (after the modulo in train_challenge_model function
+def train_model(model, x_train, y_train, x_val=None, y_val=None, output_type="cpc", batch_size=16, epochs=3):
     """
         param:
             x_train: a nd array with 3 dimensions (batch, timesteps, features)
@@ -358,7 +358,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
             print("model_type has not been implemented, exiting.....")
             exit(1)
         
-        if (num_patients_stored % 5 == 0):
+        if (num_patients_stored != 0 and num_patients_stored % 5 == 0):
             available_signal_datas = np.vstack(available_signal_datas)
             outcomes = np.vstack(outcomes)
             cpcs = np.vstack(cpcs)
