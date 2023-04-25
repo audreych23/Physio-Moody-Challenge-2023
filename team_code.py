@@ -185,7 +185,7 @@ def create_model_lstm(input_data, output_type):
     
 #     h5f = h5py.file('available_signal_data', data=available_signal_data)
 # modify hyper parameter here, and the amount of data to be processed can also be modifed (after the modulo in train_challenge_model function
-def train_model(model, x_train, y_train, x_val=None, y_val=None, output_type="cpc", batch_size=16, epochs=3):
+def train_model(model, x_train, y_train, x_val=None, y_val=None, output_type="cpc", batch_size=32, epochs=5):
     """
         param:
             x_train: a nd array with 3 dimensions (batch, timesteps, features)
@@ -297,12 +297,16 @@ def train_challenge_model(data_folder, model_folder, verbose):
 
     num_patients_stored = 0
     # model creation here : input dummy shape 
-    model_lstm_outcome = create_model_lstm(np.zeros((1, 30000, 18)), "outcome")
-    model_lstm_outcome.summary()
-    model_lstm_outcome = compile_model(model_lstm_outcome)
+    # model_lstm_outcome = create_lstm_model(np.zeros((1, 18, 30000)), "outcome")
+    # model_lstm_outcome.summary()
+    # model_lstm_outcome = compile_model(model_lstm_outcome)
     
-    model_lstm_cpc = create_model_lstm(np.zeros((1, 30000, 18)), "cpc")
-    model_lstm_cpc.summary()
+    # model_lstm_cpc = create_model_lstm(np.zeros((1, 18, 30000)), "cpc")
+    # model_lstm_cpc.summary()
+    # model_lstm_cpc = compile_model(model_lstm_cpc)
+    model_lstm_outcome = create_model(18, 30000, 2)
+    model_lstm_outcome = compile_model(model_lstm_outcome)
+    model_lstm_cpc = create_model(18, 30000, 5)
     model_lstm_cpc = compile_model(model_lstm_cpc)
 
     if verbose >= 1:
@@ -324,7 +328,8 @@ def train_challenge_model(data_folder, model_folder, verbose):
         if not np.isnan(available_signal_data[0][0][0]):
             # need to reshape??, this is used for k-cross validation
             # patient_features = patient_features.reshape(1, -1)
-            available_signal_datas.append(available_signal_data)
+            # reshape for eeg net
+            available_signal_datas.append(np.reshape(available_signal_data, (-1, 18, 30000)))
             num_patients_stored += 1
             # delta_psd_datas.append(delta_psd_data)
             # theta_psd_datas.append(theta_psd_data)
@@ -504,7 +509,7 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
 
     # outcome = np.round(lstm_model_outcome.predict(available_signal_data))
     if not np.isnan(available_signal_data[0][0][0]):
-        outcome_probability = lstm_model_outcome.predict(available_signal_data)
+        outcome_probability = lstm_model_outcome.predict(np.reshape(available_signal_data, (-1, 18, 30000)))
         outcome_probability = np.argmax(outcome_probability, axis=1).astype(np.int64)
         outcome_probability = np.average(outcome_probability)
         outcome = np.round(outcome_probability)
@@ -518,7 +523,7 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     # convert mode object to integer
     # outcome_probability = int(outcome_probability[0][0])
     if not np.isnan(available_signal_data[0][0][0]):
-        cpc = lstm_model_cpc.predict(available_signal_data)
+        cpc = lstm_model_cpc.predict(np.reshape(available_signal_data, (-1, 18, 30000)))
         # reconvert to 1 - 5 cpc
         cpc = np.argmax(cpc, axis=1).astype(np.int64) + 1
         cpc = np.average(cpc)
