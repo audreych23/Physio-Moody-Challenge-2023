@@ -18,8 +18,6 @@ import joblib
 import tensorflow as tf
 from scipy import stats as st
 from sklearn.model_selection import KFold
-import h5py
-import gc
 import data_generator as dg
 # for reproducability
 seed = 1
@@ -307,168 +305,18 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # model_lstm_cpc = compile_model(model_lstm_cpc)
     # model_lstm_outcome = create_model(18, 30000, 2)
     # model_lstm_outcome = compile_model(model_lstm_outcome)
-    training_generator = dg.DataGenerator(patient_ids, data_folder)
+    # swap it when we use eeg net -> (30000, 18) not (18, 30000)
+    training_generator = dg.DataGenerator(patient_ids, data_folder, dim=(30000, 18))
     model_lstm_cpc = create_model(18, 30000, 5)
     model_lstm_cpc = compile_model(model_lstm_cpc)
     
     if verbose >= 1:
         print('Training the Challenge models on the Challenge data...')
     model_lstm_cpc.fit(training_generator, epochs=5)
+    # Create a folder for the model if it does not already exist.
+    os.makedirs(os.path.join(model_folder, "model_cpc"), exist_ok=True)
     save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
-    # for i in range(num_patients):
-    #     if verbose >= 2:
-    #         print('    {}/{}...'.format(i+1, num_patients))
 
-    #     # Load data.
-    #     patient_id = patient_ids[i]
-    #     patient_metadata, recording_metadata, recording_data = load_challenge_data(data_folder, patient_id)
-
-    #     # Extract features.
-    #     # current_features = get_features(patient_metadata, recording_metadata, recording_data)
-    #     # current_features = get_features_test(patient_metadata, recording_metadata, recording_data)
-    #     # features.append(current_features)
-    #     patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
-    #     patients_features.append(patient_features)
-    #     if not np.isnan(available_signal_data[0][0][0]):
-    #         # need to reshape??, this is used for k-cross validation
-    #         # patient_features = patient_features.reshape(1, -1)
-    #         # reshape for eeg net
-    #         available_signal_datas.append(np.reshape(available_signal_data, (-1, 18, 30000)))
-    #         num_patients_stored += 1
-    #         # delta_psd_datas.append(delta_psd_data)
-    #         # theta_psd_datas.append(theta_psd_data)
-    #         # alpha_psd_datas.append(alpha_psd_data)
-    #         # beta_psd_datas.append(beta_psd_data)
-    #         # ignore this for now
-    #         # prefix_sum_index.append(prefix_sum_index[i] + available_signal_data.shape[0])
-
-    #     # if print_flag == 1:
-    #     #     # sanity check
-    #     #     print("patient features shape: ", patient_features.shape)
-    #     #     print("available signal shape: ", available_signal_data.shape)
-    #     #     print("delta psd shape: ", delta_psd_data.shape)
-    #     #     print("theta psd shape: ", theta_psd_data.shape)
-    #     #     print("alpha psd shape: ", alpha_psd_data.shape)
-    #     #     print("beta psd shape: ", beta_psd_data.shape)
-    #     #     print('prefix_sum_index', i + 1, prefix_sum_index[i + 1])
-
-    #     # Extract labels.
-    #     try:
-    #         if not np.isnan(available_signal_data[0][0][0]):
-    #             outcome, cpc = prepare_label(model_type=1, patient_metadata=patient_metadata, available_signal_data=available_signal_data)
-    #             outcomes.extend(outcome)
-    #             cpcs.extend(cpc)
-            
-    #         outcome_random_forest, cpc_random_forest = prepare_label(model_type=2, patient_metadata=patient_metadata, available_signal_data=available_signal_data) 
-    #         outcomes_random_forest.extend(outcome_random_forest)
-    #         cpcs_random_forest.extend(cpc_random_forest)
-
-    #     except:
-    #         print("model_type has not been implemented, exiting.....")
-    #         exit(1)
-        
-    #     if (num_patients_stored != 0 and num_patients_stored % 5 == 0):
-    #         available_signal_datas = np.vstack(available_signal_datas)
-    #         outcomes = np.vstack(outcomes)
-    #         cpcs = np.vstack(cpcs)
-
-    #         # train the model
-    #         model_lstm_outcome = train_model(model_lstm_outcome, available_signal_datas, outcomes, None, None, "outcome")
-    #         model_lstm_cpc = train_model(model_lstm_cpc, available_signal_datas, cpcs, None, None, "cpc")
-            
-    #         # clear the array
-    #         available_signal_datas = list()
-    #         outcomes = list()
-    #         cpcs = list()
-    #         gc.collect()
-
-    # delta_psd_datas = np.vstack(delta_psd_datas)
-    # theta_psd_datas = np.vstack(theta_psd_datas)
-    # alpha_psd_datas = np.vstack(alpha_psd_datas)
-    # beta_psd_datas = np.vstack(beta_psd_datas)
-    # if (len(available_signal_datas) != 0):
-    #     available_signal_datas = np.vstack(available_signal_datas)
-    #     outcomes = np.vstack(outcomes)
-    #     cpcs = np.vstack(cpcs)
-    # patients_features = np.vstack(patients_features)
-    
-    # outcomes_random_forest = np.vstack(outcomes_random_forest)
-    # cpcs_random_forest = np.vstack(cpcs_random_forest)
-
-    # if (print_flag == 1):
-    #     # sanity check
-    #     print("patients featubatch_size=batch_size, epochs=epochsres shape", patients_features.shape)
-    #     if (len(available_signal_datas) != 0):
-    #     print("available signal datas shape", available_signal_datas.shape)
-    #     # print("delta psd datas shape", delta_psd_datas.shape)
-    #     # print("theta psd datas shape", theta_psd_datas.shape)
-    #     # print("alpha psd datas shape", alpha_psd_datas.shape)
-    #     # print("beta psd datas", beta_psd_datas.shape)
-    #     print("outcomes shape", outcomes.shape)
-    #     print("cpcs shape", cpcs.shape)
-    #     print("outcomes_random_forest", outcomes_random_forest.shape)
-    #     print("cpcs_random_forest", cpcs_random_forest.shape)
-
-    # train with whole data
-    # for reproducible purpose
-    # with gpu
-    # tf.debugging.set_log_device_placement(True)
-    # gpus = tf.config.list_logical_devices('GPU')
-    # strategy = tf.distribute.MirroredStrategy(gpus)
-    # with strategy.scope():
-    #     model_lstm_outcome = create_model_lstm(available_signal_datas, 0)
-    #     model_lstm_outcome.summary()
-    #     model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, 0)
-    #     save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
-        
-    #     model_lstm_cpc = create_model_lstm(available_signal_datas, 1)
-    #     model_lstm_cpc.summary()
-    #     model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, 1)
-    #     save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
-
-    # available signal datas has to be reshape for this model 
-    # available_signal_datas = available_signal_datas.reshape((available_signal_datas.shape[0], available_signal_datas.shape[2], available_signal_data.shape[1]))
-    # model_outcome = create_model(available_signal_datas.shape[1], available_signal_datas.shape[2], 2)
-    # model_outcome.summary()
-    # model_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_outcome, "outcome")
-    # save_challenge_model_lstm(model_folder, model_outcome, "model_outcome")
-
-    # model_cpc = create_model(available_signal_datas.shape[1], available_signal_datas.shape[2], 5)
-    # model_cpc.summary()
-    # model_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_cpc, "cpc")
-    # save_challenge_model_lstm(model_folder, model_cpc, "model_cpc")
-    # without gpu
-    # model_lstm_outcome = create_model_lstm(available_signal_datas, "outcome")
-    # model_lstm_outcome.summary()
-    # model_lstm_outcome = compile_train_model(available_signal_datas, outcomes, None, None, model_lstm_outcome, "outcome")
-    # if (available_signal_datas.size != 0):
-    #     model_lstm_outcome = train_model(model_lstm_outcome, available_signal_datas, outcomes, None, None, "outcome")
-    # save_challenge_model_lstm(model_folder, model_lstm_outcome, "model_outcome")
-    
-    # model_lstm_cpc = create_model_lstm(available_signal_datas, "cpc")
-    # model_lstm_cpc.summary()
-    # model_lstm_cpc = compile_train_model(available_signal_datas, cpcs, None, None, model_lstm_cpc, "cpc")
-    # if (available_signal_datas.size != 0):
-    # model_lstm_cpc = train_model(model_lstm_cpc, available_signal_datas, cpcs, None, None, "cpc")
-
-
-    # Define parameters for random forest classifier and regressor.
-    # n_estimators   = 128  # Number of trees in the forest.
-    # max_leaf_nodes = 512  # Maximum number of leaf nodes in each tree.
-    # random_state   = 1  # Random state; set for reproducibility.
-
-    # # Impute any missing features; use the mean value by default.
-    # imputer = SimpleImputer().fit(patients_features)
-
-    # # # Train the models.
-    # patients_features = imputer.transform(patients_features)
-    # outcome_model = RandomForestClassifier(
-    #     n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, outcomes_random_forest.ravel())
-    # cpc_model = RandomForestRegressor(
-    #     n_estimators=n_estimators, max_leaf_nodes=max_leaf_nodes, random_state=random_state).fit(patients_features, cpcs_random_forest.ravel())
-    # # train the model again with the whole dataset
-    # # Save the models.
-    # save_challenge_model(model_folder, imputer, outcome_model, cpc_model)
 
     if verbose >= 1:
         print('Done.')

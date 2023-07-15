@@ -6,8 +6,8 @@ import mne
 # one think im worried about is the corner case when > batch_size
 # patient_ids[0] store patient id eg '0284'
 class DataGenerator(tf.keras.utils.Sequence):
-    def _init_(self, patient_ids, data_path,
-               to_fit = True, batch_size = 8, dim = (18, 30000), 
+    def __init__(self, patient_ids, data_path, dim = (30000, 18), 
+               to_fit = True, batch_size = 12,
                shuffle = True):
         """Initialization 
 
@@ -17,7 +17,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         # lets do something stupid by first taking data from only one lstm data which is the recentmost
         # self.patient_ids_idx = patient_ids_idx
         self.patient_ids = patient_ids
-        self.patient_ids_index = np.arange(len(self.patient_ids))
+        self.patient_ids_index = np.arange(len(patient_ids))
         self.data_path = data_path
         self.to_fit = to_fit
         self.batch_size = batch_size
@@ -31,7 +31,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         Returns: 
             number of batches per epoch
         """
-        return int(np.floor(len(self.patient_ids) / self.batch_size))
+        return int(np.ceil(len(self.patient_ids) / self.batch_size))
     
     def __getitem__(self, index):
         """Generate one batch of data
@@ -80,7 +80,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             return: batch of images
         """
         # Initialization
-        x_data = np.empty((self.batch_size, *self.dim))
+        x_data = np.empty((len(list_ids_temp), *self.dim))
         # x_data = list()
 
         # Generate data
@@ -92,15 +92,15 @@ class DataGenerator(tf.keras.utils.Sequence):
             available_signal_data = self._get_features(patient_metadata, recording_metadata, recording_data)
             x_data[i,] = available_signal_data
             # x_data[i,] = self._load_grayscale_image(os.join(self.image_path, self.labels[idx])
-        if (np.shape(x_data) != (self.batch_size, *self.dim)):
-            raise("Shape does not fit, x_data has to have shape of (batch_size, 18, 30000)")
+        # if (np.shape(x_data) != (self.batch_size, *self.dim)):
+        #     raise("Shape does not fit, x_data has to have shape of (batch_size, 18, 30000)")
         return x_data
 
     def _generate_y_data(self, list_ids_temp, num_classes = 5):
         """Generate data containing batch_size masks
 
         """
-        y_data = np.empty((self.batch_size, 1), dtype=int)
+        y_data = np.empty((len(list_ids_temp), 1), dtype=int)
         # Generate data
         for i, patient_id in enumerate(list_ids_temp):
             # Store sample
@@ -109,14 +109,15 @@ class DataGenerator(tf.keras.utils.Sequence):
             y_data[i,] = hp.get_cpc(patient_metadata) - 1
 
         # Do one hot encoding
-        y_data = tf.keras.utils.to_categorical(y_data, num_classes, dtype=tf.int64)
-        y_data = np.reshape(y_data, (self.batch_size, num_classes))
+        y_data = tf.keras.utils.to_categorical(y_data, num_classes)
+        y_data = np.reshape(y_data, (len(list_ids_temp), num_classes))
+        print(y_data)
         # Error check
-        if (np.shape(y_data) != (self.batch_size, 1)): 
-            raise Exception("Shape does not fit, y_data has to have shape of (batch_size, 1)")
+        # if (np.shape(y_data) != (self.batch_size, 1)): 
+        #     raise Exception("Shape does not fit, y_data has to have shape of (batch_size, 1)")
         return y_data
     
-    def _get_features(patient_metadata, recording_metadata, recording_data):
+    def _get_features(self, patient_metadata, recording_metadata, recording_data):
         """Get the Timestamps Data.
         Args:
             patient_metadata (list):
