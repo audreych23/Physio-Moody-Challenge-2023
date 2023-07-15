@@ -40,9 +40,15 @@ class DataGenerator(tf.keras.utils.Sequence):
             index: index of the batch
         """
         # Generate indexes of the batch
-        # indexes[32 : 64]
+        # e.g. indexes[32 : 64]
+        # corner case for high batch index where the last batch index is larger than the len of the data
+        low_batch_index = index * self.batch_size
+        high_batch_index = (index + 1) * self.batch_size
+        if (len(self.patient_ids_index) < high_batch_index):
+            high_batch_index = len(self.patient_ids_index)
+
         # since the index is shuffled already so it is fine
-        patient_ids_index_temp = self.patient_ids_index[index * self.batch_size: (index + 1) * self.batch_size]
+        patient_ids_index_temp = self.patient_ids_index[low_batch_index: high_batch_index]
 
         # Find list of IDs
         list_ids_temp = [self.patient_ids[idx] for idx in patient_ids_index_temp]
@@ -103,7 +109,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             y_data[i,] = hp.get_cpc(patient_metadata) - 1
 
         # Do one hot encoding
-        y_data = np.array(tf.one_hot(y_data, num_classes, dtype=tf.int64))
+        y_data = tf.keras.utils.to_categorical(y_data, num_classes, dtype=tf.int64)
         y_data = np.reshape(y_data, (self.batch_size, num_classes))
         # Error check
         if (np.shape(y_data) != (self.batch_size, 1)): 
