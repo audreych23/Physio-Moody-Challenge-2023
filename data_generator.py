@@ -7,12 +7,17 @@ import mne
 # patient_ids[0] store patient id eg '0284'
 class DataGenerator(tf.keras.utils.Sequence):
     def __init__(self, patient_ids, data_path, dim = (30000, 18), 
-               to_fit = True, batch_size = 12,
+               to_fit = True, batch_size = 8,
                shuffle = True):
         """Initialization 
 
         Args:
-            list_ids:
+            patient_ids : List of patient ids
+            data_path : The path to the data folder
+            dim : Dimension of the data
+            to_fit : Indicate if the data is used for training or evaluating
+            batch_size : Batch Size for Training and Evaluating model
+            shuffle : Indicate if the data will be shuffled after each epoch
         """
         # lets do something stupid by first taking data from only one lstm data which is the recentmost
         # self.patient_ids_idx = patient_ids_idx
@@ -48,16 +53,16 @@ class DataGenerator(tf.keras.utils.Sequence):
             high_batch_index = len(self.patient_ids_index)
 
         # since the index is shuffled already so it is fine
-        patient_ids_index_temp = self.patient_ids_index[low_batch_index: high_batch_index]
+        patient_ids_index_batch = self.patient_ids_index[low_batch_index: high_batch_index]
 
         # Find list of IDs
-        list_ids_temp = [self.patient_ids[idx] for idx in patient_ids_index_temp]
+        patient_ids_batch = [self.patient_ids[idx] for idx in patient_ids_index_batch]
         # has a list of id ['0286', '0284', '0297', ...]
         # Generate data
-        x_data = self._generate_x_data(list_ids_temp)
+        x_data = self._generate_x_data(patient_ids_batch)
 
         if self.to_fit:
-            y_data = self._generate_y_data(list_ids_temp)
+            y_data = self._generate_y_data(patient_ids_batch)
             return x_data, y_data
         else:
             return x_data
@@ -110,7 +115,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         # Do one hot encoding
         y_data = tf.keras.utils.to_categorical(y_data, num_classes)
-        y_data = np.reshape(y_data, (len(list_ids_temp), num_classes))
+        y_data = np.reshape(y_data, (len(list_ids_temp), num_classes)).astype(int)
         print(y_data)
         # Error check
         # if (np.shape(y_data) != (self.batch_size, 1)): 
