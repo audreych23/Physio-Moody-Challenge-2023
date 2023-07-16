@@ -9,15 +9,15 @@ class DataGenerator(tf.keras.utils.Sequence):
     def __init__(self, patient_ids, data_path, dim = (30000, 18), 
                to_fit = True, batch_size = 8,
                shuffle = True):
-        """Initialization 
+        """Constructor
 
         Args:
-            patient_ids : List of patient ids
-            data_path : The path to the data folder
-            dim : Dimension of the data
-            to_fit : Indicate if the data is used for training or evaluating
-            batch_size : Batch Size for Training and Evaluating model
-            shuffle : Indicate if the data will be shuffled after each epoch
+            patient_ids: List of patient ids
+            data_path: The path to the data folder
+            dim: Dimension of the data
+            to_fit: Indicate if the data is used for training or evaluating
+            batch_size: Batch Size for Training and Evaluating model
+            shuffle: Indicate if the data will be shuffled after each epoch
         """
         # lets do something stupid by first taking data from only one lstm data which is the recentmost
         # self.patient_ids_idx = patient_ids_idx
@@ -77,37 +77,45 @@ class DataGenerator(tf.keras.utils.Sequence):
             # shuffle index 0 1 2 3 -> 3 1 0 2
             np.random.shuffle(self.patient_ids_index)
 
-    def _generate_x_data(self, list_ids_temp):
-        """Generates data containing batch_size images
+    def _generate_x_data(self, patient_ids_batch):
+        """Generates x data of batch_size data
 
         Args:
-            list_ids_temp: list of label ids to load
-            return: batch of images
+            patient_ids_batch: Patient ids that have been shuffled and batched
+            
+        Returns:
+            x_data: the data itself (dim: (batch_size x (*self.dim)))
         """
         # Initialization
-        x_data = np.empty((len(list_ids_temp), *self.dim))
+        batch_size = len(patient_ids_batch)
+        x_data = np.empty((batch_size, *self.dim))
         # x_data = list()
 
         # Generate data
         # length of list_ids_temp should be according to batch_size
-        for i, patient_id in enumerate(list_ids_temp):
+        for i, patient_id in enumerate(patient_ids_batch):
             # Store sample
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
             # just get most recent one - very simple
             available_signal_data = self._get_features(patient_metadata, recording_metadata, recording_data)
             x_data[i,] = available_signal_data
-            # x_data[i,] = self._load_grayscale_image(os.join(self.image_path, self.labels[idx])
-        # if (np.shape(x_data) != (self.batch_size, *self.dim)):
-        #     raise("Shape does not fit, x_data has to have shape of (batch_size, 18, 30000)")
+
         return x_data
 
-    def _generate_y_data(self, list_ids_temp, num_classes = 5):
-        """Generate data containing batch_size masks
+    def _generate_y_data(self, patient_ids_batch, num_classes = 5):
+        """Generate y data of batch_size data
 
+        Args:
+            patient_ids_batch: Patient ids that have been shuffled and batched
+            num_classes: Number of classes for one hot encoding 
+
+        Returns:
+            y_data: The label of the data (y data) in one hot (dim: (batch_size x num_classes))
         """
-        y_data = np.empty((len(list_ids_temp), 1), dtype=int)
+        batch_size = len(patient_ids_batch)
+        y_data = np.empty((batch_size, 1), dtype=int)
         # Generate data
-        for i, patient_id in enumerate(list_ids_temp):
+        for i, patient_id in enumerate(patient_ids_batch):
             # Store sample
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
             # important to substract by one because of one hot encoding
@@ -115,11 +123,8 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         # Do one hot encoding
         y_data = tf.keras.utils.to_categorical(y_data, num_classes)
-        y_data = np.reshape(y_data, (len(list_ids_temp), num_classes)).astype(int)
-        print(y_data)
-        # Error check
-        # if (np.shape(y_data) != (self.batch_size, 1)): 
-        #     raise Exception("Shape does not fit, y_data has to have shape of (batch_size, 1)")
+        y_data = np.reshape(y_data, (batch_size, num_classes)).astype(int)
+
         return y_data
     
     def _get_features(self, patient_metadata, recording_metadata, recording_data):
