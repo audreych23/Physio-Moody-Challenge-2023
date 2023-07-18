@@ -135,13 +135,15 @@ def train_challenge_model(data_folder, model_folder, verbose):
     num_patients = len(patient_ids)
 
     # Plot x - y value where x is the cpc and y is the count
-    plotter.plot_data_graph(patient_ids, data_folder)
+    plotter.plot_data_graph(patient_ids, data_folder, model_folder)
     if num_patients==0:
         raise FileNotFoundError('No data was provided.')
 
     # Create a folder for the model if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
-
+    
+    graph_folder = os.path.join(model_folder, "graph")
+    os.makedirs(graph_folder, exist_ok=True)
     # Extract the features and labels.
     if verbose >= 1:
         print('Extracting features and labels from the Challenge data...')
@@ -184,7 +186,9 @@ def train_challenge_model(data_folder, model_folder, verbose):
     
     if verbose >= 1:
         print('Training the Challenge models on the Challenge data...')
-    model_lstm_cpc.fit(training_generator, epochs=5)
+    history = model_lstm_cpc.fit(training_generator, epochs=5)
+    plotter.plot_loss_curve(history, graph_folder)
+    plotter.plot_accuracy_curve(history, graph_folder)
     # Create a folder for the model if it does not already exist.
     os.makedirs(os.path.join(model_folder, "model_cpc"), exist_ok=True)
     save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
