@@ -141,7 +141,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
 
     # Create a folder for the model if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
-    
+
     graph_folder = os.path.join(model_folder, "graph")
     os.makedirs(graph_folder, exist_ok=True)
     # Extract the features and labels.
@@ -200,35 +200,52 @@ def train_challenge_model(data_folder, model_folder, verbose):
 # Load your trained models. This function is *required*. You should edit this function to add your code, but do *not* change the
 # arguments of this function.
 def load_challenge_models(model_folder, verbose):
-    filename = os.path.join(model_folder, 'models.sav')
-    foldername_lstm_outcome = os.path.join(model_folder, 'model_outcome')
+    # filename = os.path.join(model_folder, 'models.sav')
+    # foldername_lstm_outcome = os.path.join(model_folder, 'model_outcome')
     foldername_lstm_cpc = os.path.join(model_folder, 'model_cpc')
-    lstm_outcome = tf.keras.models.load_model(foldername_lstm_outcome)
-    lstm_outcome.summary()
+    # lstm_outcome = tf.keras.models.load_model(foldername_lstm_outcome)
+    # lstm_outcome.summary()
     lstm_cpc = tf.keras.models.load_model(foldername_lstm_cpc)
     lstm_cpc.summary()
     # return joblib.load(filename), lstm_outcome, lstm_cpc 
-    return lstm_outcome, lstm_cpc, joblib.load(filename)
+    # return lstm_outcome, lstm_cpc, joblib.load(filename)
+    return lstm_cpc
 
 # Run your trained models. This function is *required*. You should edit this function to add your code, but do *not* change the
 # arguments of this function.
 def run_challenge_models(models, data_folder, patient_id, verbose):
-    lstm_model_outcome = models[0]
-    lstm_model_cpc = models[1]
-    random_tree_model = models[2]
-    imputer = random_tree_model['imputer']
-    outcome_model = random_tree_model['outcome_model']
-    cpc_model = random_tree_model['cpc_model']
+    # lstm_model_outcome = models[0]
+    # lstm_model_cpc = models[1]
+    # random_tree_model = models[2]
+    # imputer = random_tree_model['imputer']
+    # outcome_model = random_tree_model['outcome_model']
+    # cpc_model = random_tree_model['cpc_model']
+    cpc_model = models
 
     # Load data.
     patient_metadata, recording_metadata, recording_data = load_challenge_data(data_folder, patient_id)
 
     # Extract features.
-    patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
-    patient_features = patient_features.reshape(1, -1)
-
+    # patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
+    # patient_features = patient_features.reshape(1, -1)
+    available_signal_data = get_features(patient_metadata, recording_metadata, recording_data)
+    cpc_pred = cpc_model.predict(np.reshape(available_signal_data, (1, 18, 30000)))
+    print("patient id: ", patient_id)
+    print("cpc softmax: ", cpc_pred)
+    # 0 and 1 index is cpc 1 and 2, 2 3 4 index is cpc 3, 4, and 5
+    outcome_probability = cpc_pred[0][2] + cpc_pred[0][3] + cpc_pred[0][4] 
+    print("outcome_proba: ", outcome_probability)
+    cpc_pred = np.argmax(cpc_pred, axis=1).astype(np.int64) + 1
+    print("cpc : ", cpc_pred)
+    if (cpc_pred[0] < 3):
+        # good
+        outcome = 0
+    else:
+        # poor
+        outcome = 1
+    print("outcome : ", outcome)
     # Impute missing data.
-    patient_features = imputer.transform(patient_features)
+    # patient_features = imputer.transform(patient_features)
 
     # Apply models to features.
     # outcome = outcome_model.predict(patient_features)[0]
@@ -236,31 +253,31 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     # cpc = cpc_model.predict(patient_features)[0]
 
     # outcome = np.round(lstm_model_outcome.predict(available_signal_data))
-    if not np.isnan(available_signal_data[0][0][0]):
-        outcome_probability = lstm_model_outcome.predict(np.reshape(available_signal_data, (-1, 18, 30000)))
-        outcome_probability = np.argmax(outcome_probability, axis=1).astype(np.int64)
-        outcome_probability = np.average(outcome_probability)
-        outcome = np.round(outcome_probability)
-    else:
-        # use random forest model if there are no eeg data
-        outcome = outcome_model.predict(patient_features)[0]
-        outcome_probability = outcome_model.predict_proba(patient_features)[0, 1]
+    # if not np.isnan(available_signal_data[0][0][0]):
+    #     outcome_probability = lstm_model_outcome.predict(np.reshape(available_signal_data, (-1, 18, 30000)))
+    #     outcome_probability = np.argmax(outcome_probability, axis=1).astype(np.int64)
+    #     outcome_probability = np.average(outcome_probability)
+    #     outcome = np.round(outcome_probability)
+    # else:
+    #     # use random forest model if there are no eeg data
+    #     outcome = outcome_model.predict(patient_features)[0]
+    #     outcome_probability = outcome_model.predict_proba(patient_features)[0, 1]
         # outcome_probability = np.random.random()
         # outcome = np.round(outcome_probability)
     # outcome_probability = st.mode(outcome, keepdims=False)
     # convert mode object to integer
     # outcome_probability = int(outcome_probability[0][0])
-    if not np.isnan(available_signal_data[0][0][0]):
-        cpc = lstm_model_cpc.predict(np.reshape(available_signal_data, (-1, 18, 30000)))
-        # reconvert to 1 - 5 cpc
-        cpc = np.argmax(cpc, axis=1).astype(np.int64) + 1
-        cpc = np.average(cpc)
-    else:
-        # use random forest model if there is no eeg data
-        cpc = cpc_model.predict(patient_features)[0]
+    # if not np.isnan(available_signal_data[0][0][0]):
+    #     cpc = lstm_model_cpc.predict(np.reshape(available_signal_data, (-1, 18, 30000)))
+    #     # reconvert to 1 - 5 cpc
+    #     cpc = np.argmax(cpc, axis=1).astype(np.int64) + 1
+    #     cpc = np.average(cpc)
+    # else:
+    #     # use random forest model if there is no eeg data
+    #     cpc = cpc_model.predict(patient_features)[0]
     
     # Ensure that the CPC score is between (or equal to) 1 and 5.
-    cpc = np.clip(cpc, 1, 5)
+    cpc = np.clip(cpc_pred, 1, 5)
 
     return outcome, outcome_probability, cpc
 
@@ -597,5 +614,6 @@ def get_features(patient_metadata, recording_metadata, recording_data):
     # if (verbose >= 1):
     #     print("features shape:", features.shape)
     # Combine the features from the patient metadata and the recording data and metadata.
-    return patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data
+    return available_signal_data[-1]
+    # return patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data
 
