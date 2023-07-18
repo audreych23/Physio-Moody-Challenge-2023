@@ -35,6 +35,7 @@ def plot_loss_curve(history, graph_folder):
     plt.savefig(os.path.join(graph_folder, "loss_curve.png"))
     return
 
+
 def plot_data_graph(list_patient_ids, data_folder, graph_folder):
     """Plot the label data (cpc data) with the count of the data
 
@@ -44,6 +45,7 @@ def plot_data_graph(list_patient_ids, data_folder, graph_folder):
     """
     
     # plot cpc with count graph
+    
     dict_cpc_count = dict()
     dict_outcome_count = dict()
     for patient_id in list_patient_ids:
@@ -59,42 +61,25 @@ def plot_data_graph(list_patient_ids, data_folder, graph_folder):
             dict_outcome_count[outcome] = 1
         else:
             dict_outcome_count[outcome] += 1
-
+            
+    plt.figure()
     df = pd.DataFrame({
         'cpc': list(dict_cpc_count.keys()),
         'count': list(dict_cpc_count.values()),
     })
-    sns.barplot(data=df, x='cpc', y='count')
+    
+    ax = sns.barplot(data=df, x='cpc', y='count')
+    for i in ax.containers:
+        ax.bar_label(i,)
     plt.savefig(os.path.join(graph_folder, "data_cpc_count.png"))
     
+    plt.figure()
     df = pd.DataFrame({
         'outcome': list(dict_outcome_count.keys()),
         'count': list(dict_outcome_count.values()),
     })
 
-    sns.barplot(data=df, x='outcome', y='count')
+    ax = sns.barplot(data=df, x='outcome', y='count')
+    for i in ax.containers:
+        ax.bar_label(i,)
     plt.savefig(os.path.join(graph_folder, "data_outcome_count.png"))
-    # Plot binary good (1) and bad (0) with count
-    
-    # for cpc in dict_cpc_count:
-    #     # cpc 1, 2 is good
-    #     if cpc < 3:
-    #         if 'good : 0' not in dict_outcome_count:
-    #             dict_outcome_count['good : 0'] = dict_cpc_count[cpc] 
-    #         else: 
-    #             dict_outcome_count['good : 0'] += dict_cpc_count[cpc] 
-    #     # cpc 3, 4, 5 is baf
-    #     else:
-    #         if 'poor : 1' not in dict_outcome_count:
-    #             dict_outcome_count['poor : 1'] = dict_cpc_count[cpc]
-    #         else:
-    #             dict_outcome_count['poor : 1'] += dict_cpc_count[cpc]
-    
-    # df = pd.DataFrame({
-    #     'outcome': list(dict_outcome_count.keys()),
-    #     'count': list(dict_outcome_count.values()),
-    # })
-
-    # sns.barplot(data=df, x='outcome', y='count')
-    # plt.savefig("data_outcome_count")
-    # plt.show()
