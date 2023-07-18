@@ -135,13 +135,14 @@ def train_challenge_model(data_folder, model_folder, verbose):
     num_patients = len(patient_ids)
 
     # Plot x - y value where x is the cpc and y is the count
-    plotter.plot_data_graph(patient_ids, data_folder, model_folder)
+
     if num_patients==0:
         raise FileNotFoundError('No data was provided.')
 
     # Create a folder for the model if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
 
+    # Create a folder for the graph if it does not already exist.
     graph_folder = os.path.join(model_folder, "graph")
     os.makedirs(graph_folder, exist_ok=True)
     # Extract the features and labels.
@@ -179,20 +180,22 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # model_lstm_cpc = compile_model(model_lstm_cpc)
     # model_lstm_outcome = create_model(18, 30000, 2)
     # model_lstm_outcome = compile_model(model_lstm_outcome)
-    # swap it when we use eeg net -> (30000, 18) not (18, 30000)
+    # swap it when
+    # we use eeg net -> (30000, 18) not (18, 30000)
     training_generator = dg.DataGenerator(patient_ids, data_folder, dim=(30000, 18))
     model_lstm_cpc = create_model(18, 30000, 5)
     model_lstm_cpc = compile_model(model_lstm_cpc)
     
     if verbose >= 1:
         print('Training the Challenge models on the Challenge data...')
+    # Train model 
     history = model_lstm_cpc.fit(training_generator, epochs=5)
+    # Plot both loss and accuracy 
     plotter.plot_loss_curve(history, graph_folder)
     plotter.plot_accuracy_curve(history, graph_folder)
     # Create a folder for the model if it does not already exist.
     os.makedirs(os.path.join(model_folder, "model_cpc"), exist_ok=True)
     save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
-
 
     if verbose >= 1:
         print('Done.')
