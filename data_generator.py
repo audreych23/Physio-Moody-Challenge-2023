@@ -7,7 +7,7 @@ import mne
 # patient_ids[0] store patient id eg '0284'
 class DataGenerator(tf.keras.utils.Sequence):
     def __init__(self, patient_ids, data_path, dim = (30000, 18), 
-               to_fit = True, batch_size = 8,
+               to_fit = True, batch_size = 8, num_classes = 2,
                shuffle = True):
         """Constructor
 
@@ -28,6 +28,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.dim = dim
         self.shuffle = shuffle
+        self.num_classes = num_classes
         self.on_epoch_end()
     
     def __len__(self):
@@ -62,7 +63,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         x_data = self._generate_x_data(patient_ids_batch)
 
         if self.to_fit:
-            y_data = self._generate_y_data(patient_ids_batch)
+            y_data = self._generate_y_data(patient_ids_batch, self.num_classes)
             return x_data, y_data
         else:
             return x_data
@@ -102,7 +103,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         return x_data
 
-    def _generate_y_data(self, patient_ids_batch, num_classes = 5):
+    def _generate_y_data(self, patient_ids_batch, num_classes):
         """Generate y data of batch_size data
 
         Args:
@@ -119,7 +120,8 @@ class DataGenerator(tf.keras.utils.Sequence):
             # Store sample
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
             # important to substract by one because of one hot encoding
-            y_data[i,] = hp.get_cpc(patient_metadata) - 1
+            # y_data[i,] = hp.get_cpc(patient_metadata) - 1
+            y_data[i, ] = hp.get_outcome(patient_metadata)
 
         # Do one hot encoding
         y_data = tf.keras.utils.to_categorical(y_data, num_classes)
