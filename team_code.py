@@ -173,10 +173,10 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # Train model
     if validation: 
         # history_cpc = model_cpc.fit(training_generator, validation_data=validation_generator, epochs=5)
-        history_outcome = model_outcome.fit(training_generator, validation_data=validation_generator, epochs=15)
+        history_outcome = model_outcome.fit(training_generator, validation_data=validation_generator, epochs=5)
     else:
         # history_cpc = model_cpc.fit(training_generator, epochs=5)
-        history_outcome = model_outcome.fit(training_generator, epochs=15)
+        history_outcome = model_outcome.fit(training_generator, epochs=5)
     # Plot both loss and accuracy 
     # plotter.plot_loss_curve(history_cpc, graph_folder)
     # plotter.plot_accuracy_curve(history_cpc, graph_folder)
