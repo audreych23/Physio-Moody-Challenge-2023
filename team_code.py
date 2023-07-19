@@ -53,35 +53,6 @@ def create_model_lstm(input_data, output_type):
 
     return tf.keras.models.Model(inputs, outputs)
 
-# modify hyper parameter here, and the amount of data to be processed can also be modifed (after the modulo in train_challenge_model function
-def train_model(model, x_train, y_train, x_val=None, y_val=None, output_type="cpc", batch_size=32, epochs=5):
-    """
-        param:
-            x_train: a nd array with 3 dimensions (batch, timesteps, features)
-            y_train: a nd array with 2 dimensions (batch, 1)
-            x_val: None if there is no validation data default None
-            y_val: None if there is no validation data default None
-            model : the model you want to train
-            output_type: a string of "cpc" or "outcome"
-        returns 
-            the trained model
-    """
-    # if output_type == "outcome":
-    #     y_train = tf.keras.utils.to_categorical(y_train, 2)
-    #     if (y_val != None):
-    #         y_val = tf.keras.utils.to_categorical(y_val, 2)
-    # else:
-    #     # convert to one-hot
-    #     y_train = tf.keras.utils.to_categorical(y_train, 5)
-    #     if (y_val != None):
-    #         y_val = tf.keras.utils.to_categorical(y_val, 5)
-    if (y_val != None):
-        model.fit(x_train, y_train, validation_data=(x_val, y_val), batch_size=batch_size, epochs=epochs)
-    else:
-        model.fit(x_train, y_train, batch_size=batch_size, epochs=epochs)
-    
-    return model
-    
 
 def compile_model(model, lr=0.00001, loss='categorical_crossentropy', metrics=['accuracy']):
     """
@@ -202,10 +173,10 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # Train model
     if validation: 
         # history_cpc = model_cpc.fit(training_generator, validation_data=validation_generator, epochs=5)
-        history_outcome = model_outcome.fit(training_generator, validation_data=validation_generator, epochs=5)
+        history_outcome = model_outcome.fit(training_generator, validation_data=validation_generator, epochs=15)
     else:
         # history_cpc = model_cpc.fit(training_generator, epochs=5)
-        history_outcome = model_outcome.fit(training_generator, epochs=5)
+        history_outcome = model_outcome.fit(training_generator, epochs=15)
     # Plot both loss and accuracy 
     # plotter.plot_loss_curve(history_cpc, graph_folder)
     # plotter.plot_accuracy_curve(history_cpc, graph_folder)
