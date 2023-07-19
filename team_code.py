@@ -125,43 +125,45 @@ def average(lst):
 
 # Train your model.
 def train_challenge_model(data_folder, model_folder, verbose):
+    # time smaple x channel
+    dimension = (30000, 18)
+
+    # Create a folder for the model if it does not already exist.
+    os.makedirs(model_folder, exist_ok=True)
+    # Create a folder for the graph if it does not already exist.
+    graph_folder = os.path.join(model_folder, "graph")
+    os.makedirs(graph_folder, exist_ok=True)
+    
+
+    # For submission
+    if not os.path.exists(os.path.join(data_folder, 'validation')) or not os.path.exists(os.path.join(data_folder, 'training')):
+        validation = False
+        training_folder = data_folder
+    else:
+        validation = True
+        validation_folder = os.path.join(data_folder, 'validation')
+        training_folder = os.path.join(data_folder, 'training')
+    
     # for debugging purpose
     print_flag = 1
     # Find data files.
     if verbose >= 1:
         print('Finding the Challenge data...')
 
-    patient_ids = find_data_folders(data_folder)
-    num_patients = len(patient_ids)
+    patient_ids_train = find_data_folders(training_folder)
+    if (validation):
+        patient_ids_val = find_data_folders(validation_folder)
+    num_patients_train = len(patient_ids_train)
 
-    # Plot x - y value where x is the cpc and y is the count
+    if num_patients_train==0:
+        raise FileNotFoundError('No training data was provided.')
 
-    if num_patients==0:
-        raise FileNotFoundError('No data was provided.')
-
-    # Create a folder for the model if it does not already exist.
-    os.makedirs(model_folder, exist_ok=True)
-
-    # Create a folder for the graph if it does not already exist.
-    graph_folder = os.path.join(model_folder, "graph")
-    os.makedirs(graph_folder, exist_ok=True)
     # Extract the features and labels.
     if verbose >= 1:
         print('Extracting features and labels from the Challenge data...')
 
-    # list for x datas
-    patients_features = list()
-    available_signal_datas = list()
-    delta_psd_datas = list() 
-    theta_psd_datas = list() 
-    alpha_psd_datas = list() 
-    beta_psd_datas = list()
-
-    # list for y datas : outcomes and cpcs
-    outcomes = list()
-    cpcs = list()
-    outcomes_random_forest = list()
-    cpcs_random_forest = list()
+    # outcomes_random_forest = list()
+    # cpcs_random_forest = list()
 
     # this is a list where the index of the list is equal to the current element on the list
     # say that on the first patient we have 50 hours of eeg recording, 2nd has 30 hours
@@ -182,21 +184,37 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # model_lstm_outcome = compile_model(model_lstm_outcome)
     # swap it when
     # we use eeg net -> (30000, 18) not (18, 30000)
-    training_generator = dg.DataGenerator(patient_ids, data_folder, dim=(30000, 18))
-    model_lstm_cpc = create_model(18, 30000, 5)
-    model_lstm_cpc = compile_model(model_lstm_cpc)
-    
+
+
+    if verbose >= 1:
+        print('Creating data generator...')
+
+    training_generator = dg.DataGenerator(patient_ids_train, training_folder, dim=dimension, batch_size=16, num_classes=2)
+    if validation:
+        validation_generator = dg.DataGenerator(patient_ids_val, validation_folder, dim=dimension, batch_size=16, num_classes=2)
+    # model_cpc = create_model(dimension[1], dimension[0], 5)
+    # model_cpc = compile_model(model_cpc)
+    model_outcome = create_model(dimension[1], dimension[0], 2)
+    model_outcome = compile_model(model_outcome)
     if verbose >= 1:
         print('Training the Challenge models on the Challenge data...')
-    # Train model 
-    history = model_lstm_cpc.fit(training_generator, epochs=5)
-    # Plot both loss and accuracy 
-    plotter.plot_loss_curve(history, graph_folder)
-    plotter.plot_accuracy_curve(history, graph_folder)
-    # Create a folder for the model if it does not already exist.
-    os.makedirs(os.path.join(model_folder, "model_cpc"), exist_ok=True)
-    save_challenge_model_lstm(model_folder, model_lstm_cpc, "model_cpc")
 
+    # Train model
+    if validation: 
+        # history_cpc = model_cpc.fit(training_generator, validation_data=validation_generator, epochs=5)
+        history_outcome = model_outcome.fit(training_generator, validation_data=validation_generator, epochs=5)
+    else:
+        # history_cpc = model_cpc.fit(training_generator, epochs=5)
+        history_outcome = model_outcome.fit(training_generator, epochs=5)
+    # Plot both loss and accuracy 
+    # plotter.plot_loss_curve(history_cpc, graph_folder)
+    # plotter.plot_accuracy_curve(history_cpc, graph_folder)
+
+    plotter.plot_loss_curve(history_outcome, graph_folder)
+    plotter.plot_accuracy_curve(history_outcome, graph_folder)
+    # Create a folder for the model if it does not already exist.
+    # save_challenge_model_lstm(model_folder, model_cpc, "model_cpc")
+    save_challenge_model_lstm(model_folder, model_outcome, "model_outcome")
     if verbose >= 1:
         print('Done.')
 
@@ -204,15 +222,16 @@ def train_challenge_model(data_folder, model_folder, verbose):
 # arguments of this function.
 def load_challenge_models(model_folder, verbose):
     # filename = os.path.join(model_folder, 'models.sav')
-    # foldername_lstm_outcome = os.path.join(model_folder, 'model_outcome')
-    foldername_lstm_cpc = os.path.join(model_folder, 'model_cpc')
-    # lstm_outcome = tf.keras.models.load_model(foldername_lstm_outcome)
-    # lstm_outcome.summary()
-    lstm_cpc = tf.keras.models.load_model(foldername_lstm_cpc)
-    lstm_cpc.summary()
+    foldername_outcome = os.path.join(model_folder, 'model_outcome')
+    # foldername_cpc = os.path.join(model_folder, 'model_cpc')
+    
+    # cpc_model = tf.keras.models.load_model(foldername_cpc)
+    # cpc_model.summary()
+    outcome_model = tf.keras.models.load_model(foldername_outcome)
+    outcome_model.summary()
     # return joblib.load(filename), lstm_outcome, lstm_cpc 
     # return lstm_outcome, lstm_cpc, joblib.load(filename)
-    return lstm_cpc
+    return outcome_model
 
 # Run your trained models. This function is *required*. You should edit this function to add your code, but do *not* change the
 # arguments of this function.
@@ -223,7 +242,8 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     # imputer = random_tree_model['imputer']
     # outcome_model = random_tree_model['outcome_model']
     # cpc_model = random_tree_model['cpc_model']
-    cpc_model = models
+    
+    outcome_model = models
 
     # Load data.
     patient_metadata, recording_metadata, recording_data = load_challenge_data(data_folder, patient_id)
@@ -232,21 +252,21 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     # patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
     # patient_features = patient_features.reshape(1, -1)
     available_signal_data = get_features(patient_metadata, recording_metadata, recording_data)
-    cpc_pred = cpc_model.predict(np.reshape(available_signal_data, (1, 18, 30000)))
+    outcome_pred = outcome_model.predict(np.reshape(available_signal_data, (1, 18, 30000)))
     print("patient id: ", patient_id)
-    print("cpc softmax: ", cpc_pred)
+    print("outcome softmax: ", outcome_pred)
     # 0 and 1 index is cpc 1 and 2, 2 3 4 index is cpc 3, 4, and 5
-    outcome_probability = cpc_pred[0][2] + cpc_pred[0][3] + cpc_pred[0][4] 
+    outcome_probability = outcome_pred[0][1] 
     print("outcome_proba: ", outcome_probability)
-    cpc_pred = np.argmax(cpc_pred, axis=1).astype(np.int64) + 1
-    print("cpc : ", cpc_pred)
-    if (cpc_pred[0] < 3):
+    outcome_pred = np.argmax(outcome_pred, axis=1).astype(np.int64)
+    print("outcome predict: ", outcome_pred)
+    if (outcome_pred[0] < 1):
         # good
-        outcome = 0
+        cpc = 1
     else:
         # poor
-        outcome = 1
-    print("outcome : ", outcome)
+        cpc = 5
+    print("cpc:", cpc)
     # Impute missing data.
     # patient_features = imputer.transform(patient_features)
 
@@ -280,9 +300,9 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     #     cpc = cpc_model.predict(patient_features)[0]
     
     # Ensure that the CPC score is between (or equal to) 1 and 5.
-    cpc = np.clip(cpc_pred, 1, 5)
+    cpc = np.clip(cpc, 1, 5)
 
-    return outcome, outcome_probability, cpc
+    return outcome_pred, outcome_probability, cpc
 
 ################################################################################
 #
@@ -297,6 +317,7 @@ def save_challenge_model(model_folder, imputer, outcome_model, cpc_model):
     joblib.dump(d, filename, protocol=0)
 
 def save_challenge_model_lstm(model_folder, model, folder_name):
+    os.makedirs(os.path.join(model_folder, folder_name), exist_ok=True)
     model.save(os.path.join(model_folder, folder_name))
 
 # Extract features from the data.
