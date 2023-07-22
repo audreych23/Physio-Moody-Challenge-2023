@@ -3,15 +3,14 @@ import sys
 import shutil
 
 # This file is used to delete recorded file depending on highest_recorded hours below a certain threshold and is gotten from records
-threshold = 46
-
 if __name__ == '__main__':
     # Parse the arguments.
-    if not (len(sys.argv) == 2):
-        raise Exception('Include the data,folders as arguments, e.g., python clean_data_train.py model data outputs.')
+    if not (len(sys.argv) == 3):
+        raise Exception('Include the data,folders as arguments, e.g., python clean_data_train.py model data threshold.')
 
     # Define the data folder
     data_folder = sys.argv[1]
+    threshold = int(sys.argv[2])
 
     # Get all directories in the data folder
     directories = os.listdir(data_folder)
