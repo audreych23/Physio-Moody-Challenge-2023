@@ -6,8 +6,12 @@ import mne
 # one think im worried about is the corner case when > batch_size
 # patient_ids[0] store patient id eg '0284'
 class DataGenerator(tf.keras.utils.Sequence):
+    """This class is a data generator use to load partial data in memory, batch_size is recommended to be less than 4
+        Dimension of the actual data depends on each patient hours data availability and batch_size
+        i.e. if batch_size is 4, and each patient has 15, 32, 42, 52 hours then available_h_in_patient_per_batch_size = 15 + 32 + 42 + 52
+    """
     def __init__(self, patient_ids, data_path, dim = (30000, 18), 
-               to_fit = True, batch_size = 8, num_classes = 2,
+               to_fit = True, batch_size = 8, num_classes = 2, threshold = 48,
                shuffle = True):
         """Constructor
 
@@ -29,6 +33,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.dim = dim
         self.shuffle = shuffle
         self.num_classes = num_classes
+        self.threshold = threshold
         self.on_epoch_end()
     
     def __len__(self):
@@ -60,10 +65,14 @@ class DataGenerator(tf.keras.utils.Sequence):
         patient_ids_batch = [self.patient_ids[idx] for idx in patient_ids_index_batch]
         # has a list of id ['0286', '0284', '0297', ...]
         # Generate data
-        x_data = self._generate_x_data(patient_ids_batch)
+        # dim of x data depends on batch size and available hours per patient
+        x_data, len_x_datas = self._generate_x_data(patient_ids_batch)
+        print("X data has finished generating...")
 
         if self.to_fit:
-            y_data = self._generate_y_data(patient_ids_batch, self.num_classes)
+            y_data = self._generate_y_data(patient_ids_batch, self.num_classes, len_x_datas)
+            print("y data has finished generating...")
+            print(np.shape(x_data), np.shape(y_data))
             return x_data, y_data
         else:
             return x_data
@@ -86,58 +95,84 @@ class DataGenerator(tf.keras.utils.Sequence):
             
         Returns:
             x_data: the data itself (dim: (batch_size x (*self.dim)))
+            len_x_datas: list of the length of each data per patient in batch (useful to duplicate y_data) 
         """
         # Initialization
         batch_size = len(patient_ids_batch)
-        x_data = np.empty((batch_size, *self.dim))
-        # x_data = list()
-
+        # x_data = np.empty((batch_size, *self.dim))
+        x_data = list()
+        len_x_datas = list()
         # Generate data
         # length of list_ids_temp should be according to batch_size
         for i, patient_id in enumerate(patient_ids_batch):
             # Store sample
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
             # just get most recent one - very simple
-            available_signal_data = self._get_features(patient_metadata, recording_metadata, recording_data)
-            x_data[i,] = available_signal_data
+            available_signal_data = self._get_features(patient_metadata, recording_metadata, recording_data, self.threshold)
+            print("available_signal_data: ", np.shape(available_signal_data))
+            x_data.append(available_signal_data)
+            len_x_datas.append(np.shape(available_signal_data)[0])
+            # x_data[i,] = available_signal_data
+        
+        x_data = np.array(x_data)
+        x_data = np.vstack(x_data)
+        assert not np.any(np.isnan(x_data))
+        return x_data, len_x_datas
 
-        return x_data
-
-    def _generate_y_data(self, patient_ids_batch, num_classes):
+    def _generate_y_data(self, patient_ids_batch, num_classes, len_x_datas):
         """Generate y data of batch_size data
 
         Args:
             patient_ids_batch: Patient ids that have been shuffled and batched
             num_classes: Number of classes for one hot encoding 
-
+            len_x_datas: a list storing the length of each patient available (signal) hours 
         Returns:
-            y_data: The label of the data (y data) in one hot (dim: (batch_size x num_classes))
+            y_data: The label of the data (y data) in one hot (dim: (sum(len_x_datas) x num_classes)) (depends on how many hours is it available per patients)
         """
-        batch_size = len(patient_ids_batch)
-        y_data = np.empty((batch_size, 1), dtype=int)
+        # batch_size = len(patient_ids_batch)
+        batch_size = sum(len_x_datas)
+        y_data = list()
         # Generate data
         for i, patient_id in enumerate(patient_ids_batch):
             # Store sample
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
             # important to substract by one because of one hot encoding
             # y_data[i,] = hp.get_cpc(patient_metadata) - 1
-            y_data[i, ] = hp.get_outcome(patient_metadata)
 
+            outcome_data = hp.get_outcome(patient_metadata)
+            outcome_data = self._duplicate_y_data(len_x_datas[i], outcome_data)
+            y_data.append(outcome_data)
+
+        y_data = np.array(y_data)
+        y_data = np.vstack(y_data).astype(int)
         # Do one hot encoding
-        y_data = tf.keras.utils.to_categorical(y_data, num_classes)
-        y_data = np.reshape(y_data, (batch_size, num_classes)).astype(int)
+        # y_data = tf.keras.utils.to_categorical(y_data, num_classes)
+        # y_data = np.reshape(y_data, (batch_size, num_classes)).astype(int)
 
         return y_data
     
-    def _get_features(self, patient_metadata, recording_metadata, recording_data):
+    def _duplicate_y_data(self, len_x_data, y_data):
+        """This is needed for this specific to get the output for every time hour
+        Args:
+            len_x_data_batch : amount of y data that should be duplicated and it depends to how many x data have we added 
+        Returns:
+            patient_y_datas : the duplicated y_datas
+        """
+        patient_y_datas = list()
+        for _ in range(len_x_data):
+            patient_y_datas.append(y_data)
+        print(len(patient_y_datas))
+        patient_y_datas = np.array(patient_y_datas)
+        patient_y_datas = np.reshape(patient_y_datas, (-1, 1))
+        return patient_y_datas
+    
+    def _get_features(self, patient_metadata, recording_metadata, recording_data, threshold):
         """Get the Timestamps Data.
         Args:
-            patient_metadata (list):
-                Data of Patient.
-            recording_metadata (list):
-                Data of Recording.
-            recording_data (list):
-                Recording Data.
+            patient_metadata (list): Data of Patient
+            recording_metadata (list): Data of Recording
+            recording_data (list): Recording Data
+            threshold: threshold of hours, only take the data when hours is above threshold
             option (int):
                 * 1: Recording timestamp with PSDs.
                 * 2: Recording timestamp with PSDs and appended Quality.
@@ -192,34 +227,34 @@ class DataGenerator(tf.keras.utils.Sequence):
         beta_psd_data  = list()
 
         for i in range(num_recordings):
-            signal_data, sampling_frequency, signal_channels = recording_data[i]
-            if signal_data is not None:
-                signal_data = hp.reorder_recording_channels(signal_data, signal_channels, channels) # Reorder the channels in the signal data, as needed, for consistency across different recordings.
-            
-                delta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=0.5,  fmax=8.0, verbose=False)
-                theta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=4.0,  fmax=8.0, verbose=False)
-                alpha_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=8.0, fmax=12.0, verbose=False)
-                beta_psd,  _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency, fmin=12.0, fmax=30.0, verbose=False)
-                quality_score = list()
-                quality_score.append(quality_scores[i])
-
-                if add_quality == True: # num_channels (+1)
-                    signal_data = np.append(signal_data, [quality_score * signal_data.shape[1]], axis=0)
-                    delta_psd   = np.append(delta_psd, [quality_score * delta_psd.shape[1]], axis=0)
-                    theta_psd   = np.append(theta_psd, [quality_score * theta_psd.shape[1]], axis=0)
-                    alpha_psd   = np.append(alpha_psd, [quality_score * alpha_psd.shape[1]], axis=0)
-                    beta_psd    = np.append(beta_psd, [quality_score * beta_psd.shape[1]], axis=0)                
-
-                # DEBUG
-                # print("shapes:", signal_data.shape, delta_psd.shape, theta_psd.shape, alpha_psd.shape, beta_psd.shape)
+            if i >= (threshold - 1):
+                signal_data, sampling_frequency, signal_channels = recording_data[i]
+                if signal_data is not None:
+                    signal_data = hp.reorder_recording_channels(signal_data, signal_channels, channels) # Reorder the channels in the signal data, as needed, for consistency across different recordings.
                 
-                available_signal_data.append(signal_data)
-                delta_psd_data.append(delta_psd)
-                theta_psd_data.append(theta_psd)
-                alpha_psd_data.append(alpha_psd)
-                beta_psd_data.append(beta_psd)
-                
+                    delta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=0.5,  fmax=8.0, verbose=False)
+                    theta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=4.0,  fmax=8.0, verbose=False)
+                    alpha_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=8.0, fmax=12.0, verbose=False)
+                    beta_psd,  _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency, fmin=12.0, fmax=30.0, verbose=False)
+                    quality_score = list()
+                    quality_score.append(quality_scores[i])
 
+                    if add_quality == True: # num_channels (+1)
+                        signal_data = np.append(signal_data, [quality_score * signal_data.shape[1]], axis=0)
+                        delta_psd   = np.append(delta_psd, [quality_score * delta_psd.shape[1]], axis=0)
+                        theta_psd   = np.append(theta_psd, [quality_score * theta_psd.shape[1]], axis=0)
+                        alpha_psd   = np.append(alpha_psd, [quality_score * alpha_psd.shape[1]], axis=0)
+                        beta_psd    = np.append(beta_psd, [quality_score * beta_psd.shape[1]], axis=0)                
+
+                    # DEBUG
+                    # print("shapes:", signal_data.shape, delta_psd.shape, theta_psd.shape, alpha_psd.shape, beta_psd.shape)
+                    
+                    available_signal_data.append(signal_data)
+                    delta_psd_data.append(delta_psd)
+                    theta_psd_data.append(theta_psd)
+                    alpha_psd_data.append(alpha_psd)
+                    beta_psd_data.append(beta_psd)
+    
         if len(available_signal_data) > 0:
 
             if return_by_hours == True:
@@ -242,6 +277,8 @@ class DataGenerator(tf.keras.utils.Sequence):
             beta_psd_data = np.transpose(beta_psd_data, trans_axes)
 
         else:
+            print("am I here")
+            print(hp.get_patient_id(patient_metadata))
             available_signal_data = delta_psd_data = theta_psd_data = alpha_psd_data = beta_psd_data = np.hstack(float('nan') * np.ones(num_channels))
             available_signal_data = np.empty((1, 30000, 18))
             available_signal_data.fill(np.NaN)
@@ -264,8 +301,9 @@ class DataGenerator(tf.keras.utils.Sequence):
         #     print("features shape:", features.shape)
         # Combine the features from the patient metadata and the recording data and metadata.
         # return most recent available_signal_data[-1]
-        return available_signal_data[-1]
+        # return available_signal_data[-1]
         # return patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data
+        return available_signal_data
 
 
 

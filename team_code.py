@@ -25,6 +25,10 @@ seed = 1
 np.random.seed(seed)
 tf.random.set_seed(seed)
 
+# only use cpu
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+# parameters that can be modified
+threshold = 48
 ################################################################################
 #
 # Required functions. Edit these functions to add your code, but do not change the arguments of the functions.
@@ -54,7 +58,7 @@ def create_model_lstm(input_data, output_type):
     return tf.keras.models.Model(inputs, outputs)
 
 
-def compile_model(model, lr=0.00001, loss='categorical_crossentropy', metrics=['accuracy']):
+def compile_model(model, lr=0.00001, loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True), metrics=[tf.keras.metrics.SparseCategoricalAccuracy()]):
     """
         param:
             model: the model wish to be compiled
@@ -155,14 +159,14 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # model_lstm_outcome = compile_model(model_lstm_outcome)
     # swap it when
     # we use eeg net -> (30000, 18) not (18, 30000)
-
+    
 
     if verbose >= 1:
         print('Creating data generator...')
 
-    training_generator = dg.DataGenerator(patient_ids_train, training_folder, dim=dimension, batch_size=16, num_classes=2)
+    training_generator = dg.DataGenerator(patient_ids_train, training_folder, dim=dimension, batch_size=2, num_classes=2, threshold=threshold)
     if validation:
-        validation_generator = dg.DataGenerator(patient_ids_val, validation_folder, dim=dimension, batch_size=16, num_classes=2)
+        validation_generator = dg.DataGenerator(patient_ids_val, validation_folder, dim=dimension, batch_size=2, num_classes=2, threshold=threshold)
     # model_cpc = create_model(dimension[1], dimension[0], 5)
     # model_cpc = compile_model(model_cpc)
     model_outcome = create_model(dimension[1], dimension[0], 2)
@@ -215,21 +219,29 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     # cpc_model = random_tree_model['cpc_model']
     
     outcome_model = models
-
+    probability_model = tf.keras.Sequential([
+        outcome_model,
+        tf.keras.layers.Softmax()
+    ])
     # Load data.
     patient_metadata, recording_metadata, recording_data = load_challenge_data(data_folder, patient_id)
 
     # Extract features.
     # patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
     # patient_features = patient_features.reshape(1, -1)
-    available_signal_data = get_features(patient_metadata, recording_metadata, recording_data)
-    outcome_pred = outcome_model.predict(np.reshape(available_signal_data, (1, 18, 30000)))
+    available_signal_data = get_features(patient_metadata, recording_metadata, recording_data, threshold)
+    outcome_pred = probability_model.predict(np.reshape(available_signal_data, (-1, 18, 30000)))
     print("patient id: ", patient_id)
     print("outcome softmax: ", outcome_pred)
+    print(np.shape(outcome_pred))
+    summed_outcome_pred = np.sum(outcome_pred, axis=0)
+    avg_outcome_pred = summed_outcome_pred / np.shape(outcome_pred)[0]
+    avg_outcome_pred = np.array([avg_outcome_pred])
     # 0 and 1 index is cpc 1 and 2, 2 3 4 index is cpc 3, 4, and 5
-    outcome_probability = outcome_pred[0][1] 
+    print(avg_outcome_pred)
+    outcome_probability = avg_outcome_pred[0][1]
     print("outcome_proba: ", outcome_probability)
-    outcome_pred = np.argmax(outcome_pred, axis=1).astype(np.int64)
+    outcome_pred = np.argmax(avg_outcome_pred, axis=1).astype(np.int64)
     print("outcome predict: ", outcome_pred)
     if (outcome_pred[0] < 1):
         # good
@@ -292,7 +304,7 @@ def save_challenge_model_lstm(model_folder, model, folder_name):
     model.save(os.path.join(model_folder, folder_name))
 
 # Extract features from the data.
-def get_features_2(patient_metadata, recording_metadata, recording_data):
+def get_features_2(patient_metadata, recording_metadata, recording_data, threshold):
     # TODO : DELETE THIS
     verbose = 1
     # Extract features from the patient metadata.
@@ -466,16 +478,15 @@ def create_model(
 
     # Output layer
     outputs = tf.keras.layers.Dense(output_channels,
-                    activation='softmax',
                     kernel_constraint=tf.keras.constraints.max_norm(0.25),
                     )(sp)
     # Create the model
     model = tf.keras.Model(inputs=inputs, outputs=outputs)
-
+    model.summary()
     return model
 
 # Extract features from the data.
-def get_features(patient_metadata, recording_metadata, recording_data):
+def get_features(patient_metadata, recording_metadata, recording_data, threshold):
     """ Get the Timestamps Data.
         @params
             * patient_metadata (list):
@@ -538,32 +549,33 @@ def get_features(patient_metadata, recording_metadata, recording_data):
     beta_psd_data  = list()
 
     for i in range(num_recordings):
-        signal_data, sampling_frequency, signal_channels = recording_data[i]
-        if signal_data is not None:
-            signal_data = reorder_recording_channels(signal_data, signal_channels, channels) # Reorder the channels in the signal data, as needed, for consistency across different recordings.
-        
-            delta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=0.5,  fmax=8.0, verbose=False)
-            theta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=4.0,  fmax=8.0, verbose=False)
-            alpha_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=8.0, fmax=12.0, verbose=False)
-            beta_psd,  _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency, fmin=12.0, fmax=30.0, verbose=False)
-            quality_score = list()
-            quality_score.append(quality_scores[i])
-
-            if add_quality == True: # num_channels (+1)
-                signal_data = np.append(signal_data, [quality_score * signal_data.shape[1]], axis=0)
-                delta_psd   = np.append(delta_psd, [quality_score * delta_psd.shape[1]], axis=0)
-                theta_psd   = np.append(theta_psd, [quality_score * theta_psd.shape[1]], axis=0)
-                alpha_psd   = np.append(alpha_psd, [quality_score * alpha_psd.shape[1]], axis=0)
-                beta_psd    = np.append(beta_psd, [quality_score * beta_psd.shape[1]], axis=0)                
-
-            # DEBUG
-            # print("shapes:", signal_data.shape, delta_psd.shape, theta_psd.shape, alpha_psd.shape, beta_psd.shape)
+        if i >= (threshold - 1):
+            signal_data, sampling_frequency, signal_channels = recording_data[i]
+            if signal_data is not None:
+                signal_data = reorder_recording_channels(signal_data, signal_channels, channels) # Reorder the channels in the signal data, as needed, for consistency across different recordings.
             
-            available_signal_data.append(signal_data)
-            delta_psd_data.append(delta_psd)
-            theta_psd_data.append(theta_psd)
-            alpha_psd_data.append(alpha_psd)
-            beta_psd_data.append(beta_psd)
+                delta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=0.5,  fmax=8.0, verbose=False)
+                theta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=4.0,  fmax=8.0, verbose=False)
+                alpha_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=8.0, fmax=12.0, verbose=False)
+                beta_psd,  _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency, fmin=12.0, fmax=30.0, verbose=False)
+                quality_score = list()
+                quality_score.append(quality_scores[i])
+
+                if add_quality == True: # num_channels (+1)
+                    signal_data = np.append(signal_data, [quality_score * signal_data.shape[1]], axis=0)
+                    delta_psd   = np.append(delta_psd, [quality_score * delta_psd.shape[1]], axis=0)
+                    theta_psd   = np.append(theta_psd, [quality_score * theta_psd.shape[1]], axis=0)
+                    alpha_psd   = np.append(alpha_psd, [quality_score * alpha_psd.shape[1]], axis=0)
+                    beta_psd    = np.append(beta_psd, [quality_score * beta_psd.shape[1]], axis=0)                
+
+                # DEBUG
+                # print("shapes:", signal_data.shape, delta_psd.shape, theta_psd.shape, alpha_psd.shape, beta_psd.shape)
+                
+                available_signal_data.append(signal_data)
+                delta_psd_data.append(delta_psd)
+                theta_psd_data.append(theta_psd)
+                alpha_psd_data.append(alpha_psd)
+                beta_psd_data.append(beta_psd)
             
 
     if len(available_signal_data) > 0:
@@ -588,6 +600,7 @@ def get_features(patient_metadata, recording_metadata, recording_data):
         beta_psd_data = np.transpose(beta_psd_data, trans_axes)
 
     else:
+
         available_signal_data = delta_psd_data = theta_psd_data = alpha_psd_data = beta_psd_data = np.hstack(float('nan') * np.ones(num_channels))
         available_signal_data = np.empty((1, 30000, 18))
         available_signal_data.fill(np.NaN)
@@ -609,6 +622,6 @@ def get_features(patient_metadata, recording_metadata, recording_data):
     # if (verbose >= 1):
     #     print("features shape:", features.shape)
     # Combine the features from the patient metadata and the recording data and metadata.
-    return available_signal_data[-1]
+    return available_signal_data
     # return patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data
 
