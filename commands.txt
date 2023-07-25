@@ -1,0 +1,59 @@
+File Architecture
+/mnt/c/Users/audre/physionet/
+|_ v1.0 : unofficial phase
+|   |_ data : Full dataset
+|   |   |_ training : training full dataset
+|   |_ data_test : Testing data 
+|   |_ data_test_debug : Testing data for debugging on calling the model (partial data)
+|   |_ data_train : Training data currently it is separated in a 4 : 1 ratio with testing
+|   |   |_ training: training_data
+|   |   |_ validation: validation_data
+|   |_ data_train_debug : Training data for debugging (partial data)
+|   |   |_ training: training_data
+|   |   |_ validation: validation_data
+|   |_ experiment_result : experiment folder containing scores_csv
+|   |_ label_outputs : The test_data true outputs (y_true)
+|   |_ model : Model folder
+|   |_ test_outputs : The model output (y_pred)
+|_ v2.0 : official phase
+    |_ data : Full dataset (symlink with d and e)
+    |_ data_test : Testing data 
+    |_ data_test_debug : Testing data for debugging on calling the model (partial data)
+    |_ data_train : Training data currently it is separated in a 4 : 1 ratio with testing
+    |_ data_train_debug : Training data for debugging (partial data)
+    |_ experiment_result : experiment folder containing scores_csv
+    |_ label_outputs : The test_data true outputs (y_true)
+    |_ model : Model folder
+    |_ test_outputs : The model output (y_pred)
+
+/mnt/d/physionet/v2.0/
+|_ v2.0 : official phase
+    |_ data : Full dataset (partial because only 1 Tb, symlink to c) 
+
+/mnt/e/physionet/v2.0/
+|_ v2.0 : official phase
+    |_ data : Full dataset (partial because only 1 Tb, symlink to c)
+
+python3 train_model.py /mnt/c/Users/audre/physionet/v1.0/data_train_debug /mnt/c/Users/audre/physionet/v1.0/model/
+
+python3 train_model.py /mnt/c/Users/audre/physionet/v1.0/data_train /mnt/c/Users/audre/physionet/v1.0/model/
+
+python3 run_model.py /mnt/c/Users/audre/physionet/v1.0/model/ /mnt/c/Users/audre/physionet/v1.0/data_test_debug /mnt/c/Users/audre/physionet/v1.0/test_outputs
+
+python3 run_model.py /mnt/c/Users/audre/physionet/v1.0/model/ /mnt/c/Users/audre/physionet/v1.0/data_test /mnt/c/Users/audre/physionet/v1.0/test_outputs
+
+python3 remove_data.py -i /mnt/c/Users/audre/physionet/v1.0/data_test -o /mnt/c/Users/audre/physionet/v1.0/label_outputs
+
+python3 evaluate_model.py /mnt/c/Users/audre/physionet/v1.0/data_test /mnt/c/Users/audre/physionet/v1.0/test_outputs /mnt/c/Users/audre/physionet/v1.0/experiment_result/scores1.csv
+
+python3 data_preview.py /mnt/c/Users/audre/physionet/v1.0/data/training /mnt/c/Users/audre/physionet/v1.0/model/graph /mnt/c/Users/audre/physionet/v1.0/model/graph/data.csv
+python3 data_preview.py /mnt/c/Users/audre/physionet/v1.0/data_train /mnt/c/Users/audre/physionet/v1.0/model/graph /mnt/c/Users/audre/physionet/v1.0/model/graph/data.csv
+python3 data_preview.py /mnt/c/Users/audre/physionet/v1.0/data_test /mnt/c/Users/audre/physionet/v1.0/model/graph /mnt/c/Users/audre/physionet/v1.0/model/graph/data.csv
+
+# Delete all folders when the highest hours is (48 - 1). Run this script first to avoid nan bug
+python3 clean_data_train.py /mnt/c/Users/audre/physionet/v1.0/data_train 48
+python3 clean_data_train.py /mnt/c/Users/audre/physionet/v1.0/data_test 48
+
+# Delete signal data in each folder below 48, failing lolldsfhkasdhjf
+python3 delete_signal_below_threshold.py /mnt/c/Users/audre/physionet/v1.0/data_train 48
+python3 delete_signal_below_threshold.py /mnt/c/Users/audre/physionet/v1.0/data_test 48
