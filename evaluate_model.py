@@ -12,11 +12,86 @@
 # Each label or output file must have the format described on the Challenge webpage. The scores for the algorithm outputs are also
 # described on the Challenge webpage.
 
+
+# New Update, now user can add another argument for graphing the roc curve
+#   python evaluate_model.py labels outputs scores.csv graph_folder
+
 import os, os.path, sys, numpy as np
 from helper_code import *
+# Added imports
+import graphing as plotter
 
+
+##################################################################################################
+#
+# Newly Added Part
+#
+##################################################################################################
+
+def make_roc_graph(labels, outputs, graph_folder):
+    # outputs is the form of outcome probability
+    assert len(labels) == len(outputs)
+    num_instances = len(labels)
+
+    # Use the unique output values as the thresholds for the positive and negative classes.
+    thresholds = np.unique(outputs)
+    thresholds = np.append(thresholds, thresholds[-1]+1)
+    thresholds = thresholds[::-1]
+    num_thresholds = len(thresholds)
+
+    idx = np.argsort(outputs)[::-1]
+
+    # Initialize the TPs, FPs, FNs, and TNs with no positive outputs.
+    tp = np.zeros(num_thresholds)
+    fp = np.zeros(num_thresholds)
+    fn = np.zeros(num_thresholds)
+    tn = np.zeros(num_thresholds)
+
+    tp[0] = 0
+    fp[0] = 0
+    fn[0] = np.sum(labels == 1)
+    tn[0] = np.sum(labels == 0)
+
+    # Update the TPs, FPs, FNs, and TNs using the values at the previous threshold.
+    i = 0
+    for j in range(1, num_thresholds):
+        tp[j] = tp[j-1]
+        fp[j] = fp[j-1]
+        fn[j] = fn[j-1]
+        tn[j] = tn[j-1]
+
+        while i < num_instances and outputs[idx[i]] >= thresholds[j]:
+            if labels[idx[i]]:
+                tp[j] += 1
+                fn[j] -= 1
+            else:
+                fp[j] += 1
+                tn[j] -= 1
+            i += 1
+
+    # Compute the TPRs and FPRs.
+    tpr = np.zeros(num_thresholds)
+    fpr = np.zeros(num_thresholds)
+    for j in range(num_thresholds):
+        if tp[j] + fn[j] > 0:
+            tpr[j] = float(tp[j]) / float(tp[j] + fn[j])
+            fpr[j] = float(fp[j]) / float(fp[j] + tn[j])
+        else:
+            tpr[j] = float('nan')
+            fpr[j] = float('nan')
+
+
+    plotter.plot_roc_graph(tpr, fpr, graph_folder)
+
+    return
+
+##################################################################################################
+#
+# This part below should not be modified to keep it consistent with the script (Except the main or evaluate model)
+#
+##################################################################################################
 # Evaluate the models.
-def evaluate_model(label_folder, output_folder):
+def evaluate_model(label_folder, output_folder, graph_folder=None):
     # Load labels and model outputs.
     patient_ids, label_outcomes, label_cpcs = load_challenge_labels(label_folder)
     output_outcomes, output_outcome_probabilities, output_cpcs = load_challenge_outputs(output_folder, patient_ids)
@@ -29,6 +104,10 @@ def evaluate_model(label_folder, output_folder):
 
     mse_cpcs = compute_mse(label_cpcs, output_cpcs)
     mae_cpcs = compute_mae(label_cpcs, output_cpcs)
+    
+    # Added
+    if not graph_folder==None:
+        make_roc_graph(label_outcomes, output_outcome_probabilities, graph_folder=graph_folder)
 
     # Return the results.
     return challenge_score, auroc_outcomes, auprc_outcomes, accuracy_outcomes, f_measure_outcomes, mse_cpcs, mae_cpcs
@@ -287,7 +366,12 @@ def compute_mae(labels, outputs):
 
 if __name__ == '__main__':
     # Compute the scores for the model outputs.
-    scores = evaluate_model(sys.argv[1], sys.argv[2])
+    assert len(sys.argv) <= 5
+
+    if len(sys.argv) == 5:
+        scores = evaluate_model(sys.argv[1], sys.argv[2], sys.argv[4])
+    else:
+        scores = evaluate_model(sys.argv[1], sys.argv[2])
 
     # Unpack the scores.
     challenge_score, auroc_outcomes, auprc_outcomes, accuracy_outcomes, f_measure_outcomes, mse_cpcs, mae_cpcs = scores
@@ -302,9 +386,13 @@ if __name__ == '__main__':
         'CPC MSE: {:.3f}\n'.format(mse_cpcs) + \
         'CPC MAE: {:.3f}\n'.format(mae_cpcs)
 
+    
+    # Add new evaluation metrics with graph plotting visualization (Add new graph_folder)
+    # Please follow argument to avoid bug .
+
     # Output the scores to screen and/or a file.
     if len(sys.argv) == 3:
         print(output_string)
-    elif len(sys.argv) == 4:
+    elif len(sys.argv) >= 4:
         with open(sys.argv[3], 'w') as f:
             f.write(output_string)
