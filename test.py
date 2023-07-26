@@ -69,3 +69,9 @@ y_pred = np.array([1, 0, 1, 1, 0, 0, 0])
 y_proba_pred = np.array([0.518, 0.493, 0.596, 0.521, 0.46, 0.49, 0.068])
 challenge_score = compute_challenge_score(y_true, y_proba_pred)
 print('Challenge Score: {:.3f}\n'.format(challenge_score))
+
+# ROC Curve: The ROC curve is a graphical representation that shows the trade-off between sensitivity and 
+# specificity across the entire range of threshold values. It provides a broader view of the model's performance without imposing any specific constraint on the FPR.
+
+# Challenge Score: The challenge score is a single scalar metric that identifies the optimal threshold that 
+# maximizes TPR while keeping the FPR at or below a predefined value (0.05). It provides a specific evaluation under a fixed false positive rate constraint.
