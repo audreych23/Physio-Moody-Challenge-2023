@@ -27,6 +27,79 @@ import graphing as plotter
 # Newly Added Part
 #
 ##################################################################################################
+def plot_confusion_matrix(labels, outputs, graph_folder):
+    assert len(labels) == len(outputs)
+    plotter.plot_confusion_matrix(labels, outputs, graph_folder)
+    return
+
+def plot_confusion_matrix_challenge_score(labels, outputs, graph_folder):
+    # Plot by threshold
+    assert len(labels) == len(outputs)
+    num_instances = len(labels)
+
+    # Use the unique output values as the thresholds for the positive and negative classes.
+    thresholds = np.unique(outputs)
+    thresholds = np.append(thresholds, thresholds[-1]+1)
+    thresholds = thresholds[::-1]
+    num_thresholds = len(thresholds)
+
+    idx = np.argsort(outputs)[::-1]
+
+    # Initialize the TPs, FPs, FNs, and TNs with no positive outputs.
+    tp = np.zeros(num_thresholds)
+    fp = np.zeros(num_thresholds)
+    fn = np.zeros(num_thresholds)
+    tn = np.zeros(num_thresholds)
+
+    tp[0] = 0
+    fp[0] = 0
+    fn[0] = np.sum(labels == 1)
+    tn[0] = np.sum(labels == 0)
+
+    # Update the TPs, FPs, FNs, and TNs using the values at the previous threshold.
+    i = 0
+    for j in range(1, num_thresholds):
+        tp[j] = tp[j-1]
+        fp[j] = fp[j-1]
+        fn[j] = fn[j-1]
+        tn[j] = tn[j-1]
+
+        while i < num_instances and outputs[idx[i]] >= thresholds[j]:
+            if labels[idx[i]]:
+                tp[j] += 1
+                fn[j] -= 1
+            else:
+                fp[j] += 1
+                tn[j] -= 1
+            i += 1
+
+    # Compute the TPRs and FPRs.
+    tpr = np.zeros(num_thresholds)
+    fpr = np.zeros(num_thresholds)
+    for j in range(num_thresholds):
+        if tp[j] + fn[j] > 0:
+            tpr[j] = float(tp[j]) / float(tp[j] + fn[j])
+            fpr[j] = float(fp[j]) / float(fp[j] + tn[j])
+        else:
+            tpr[j] = float('nan')
+            fpr[j] = float('nan')
+
+    # Find the largest TPR such that FPR <= 0.05.
+    max_fpr = 0.05
+    max_tpr = float('nan')
+    max_tpr_indices = float('nan')
+    if np.any(fpr <= max_fpr):
+        indices = np.where(fpr <= max_fpr)
+        max_tpr = np.max(tpr[indices])
+        max_tpr_indices = np.argmax(tpr[indices])
+
+    tp = tp[max_tpr_indices]
+    fp = fp[max_tpr_indices]
+    tn = tn[max_tpr_indices]
+    fn = fn[max_tpr_indices]
+    threshold = thresholds[max_tpr_indices]
+    plotter.plot_confusion_matrix_challenge(tp, tn, fp, fn, threshold, graph_folder)
+    return
 
 def make_roc_graph(labels, outputs, graph_folder):
     # outputs is the form of outcome probability
@@ -108,6 +181,8 @@ def evaluate_model(label_folder, output_folder, graph_folder=None):
     # Added
     if not graph_folder==None:
         make_roc_graph(label_outcomes, output_outcome_probabilities, graph_folder=graph_folder)
+        plot_confusion_matrix(label_outcomes, output_outcomes, graph_folder=graph_folder)
+        plot_confusion_matrix_challenge_score(label_outcomes, output_outcome_probabilities, graph_folder=graph_folder)
 
     # Return the results.
     return challenge_score, auroc_outcomes, auprc_outcomes, accuracy_outcomes, f_measure_outcomes, mse_cpcs, mae_cpcs
