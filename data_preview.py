@@ -1,8 +1,10 @@
 import sys
 from helper_code import *
-from team_code import train_challenge_model
 import graphing as plotter
 import csv
+import os
+
+os.environ['CUDA_VISIBLE_DEVICES'] ="0"
 
 def write_csv(patient_ids, output_file):
     output_string = '\n'.join([str(elem) for elem in patient_ids])
