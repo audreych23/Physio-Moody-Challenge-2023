@@ -1,7 +1,6 @@
 import sys
 from helper_code import *
 import graphing as plotter
-import csv
 import os
 
 os.environ['CUDA_VISIBLE_DEVICES'] ="0"

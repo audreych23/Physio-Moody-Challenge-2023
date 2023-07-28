@@ -7,6 +7,7 @@ import numpy as np
 from sklearn import metrics
 
 def plot_confusion_matrix_challenge(tp, tn, fp, fn, threshold, graph_folder, graph_name='confusion_matrix_challenge.png'):
+    plt.figure()
     cm=[[int(tn), int(fp)],
         [int(fn), int(tp)]]
     
@@ -16,6 +17,7 @@ def plot_confusion_matrix_challenge(tp, tn, fp, fn, threshold, graph_folder, gra
     return
 
 def plot_confusion_matrix(y_true, y_predict, graph_folder, graph_name="confusion_matrx.png"):
+    plt.figure()
     # For binary classification
     confusion_matrix = metrics.confusion_matrix(y_true, y_predict)
 
