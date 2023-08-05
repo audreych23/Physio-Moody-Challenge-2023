@@ -72,7 +72,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         if self.to_fit:
             y_data = self._generate_y_data(patient_ids_batch, self.num_classes, len_x_datas)
             print("y data has finished generating...")
-            print(np.shape(x_data), np.shape(y_data))
+            print("shape of x and y data", np.shape(x_data), np.shape(y_data))
             return x_data, y_data
         else:
             return x_data
@@ -109,7 +109,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
             # just get most recent one - very simple
             available_signal_data = self._get_features(patient_metadata, recording_metadata, recording_data, self.threshold)
-            print("available_signal_data: ", np.shape(available_signal_data))
+            # print("available_signal_data: ", np.shape(available_signal_data))
             x_data.append(available_signal_data)
             len_x_datas.append(np.shape(available_signal_data)[0])
             # x_data[i,] = available_signal_data
@@ -161,7 +161,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         patient_y_datas = list()
         for _ in range(len_x_data):
             patient_y_datas.append(y_data)
-        print(len(patient_y_datas))
+        # print(len(patient_y_datas))
         patient_y_datas = np.array(patient_y_datas)
         patient_y_datas = np.reshape(patient_y_datas, (-1, 1))
         return patient_y_datas
@@ -225,7 +225,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         theta_psd_data = list()
         alpha_psd_data = list()
         beta_psd_data  = list()
-
+        print('num recordings:', num_recordings)
         for i in range(num_recordings):
             if i >= (threshold - 1):
                 signal_data, sampling_frequency, signal_channels = recording_data[i]
@@ -238,6 +238,13 @@ class DataGenerator(tf.keras.utils.Sequence):
                     beta_psd,  _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency, fmin=12.0, fmax=30.0, verbose=False)
                     quality_score = list()
                     quality_score.append(quality_scores[i])
+                    print('signal data shape:', np.shape(signal_data))
+                    print('delta psd shape:', np.shape(delta_psd))
+                    # print(delta_psd)
+                    print('theta psd shape:', np.shape(theta_psd))
+                    # print(theta_psd)
+                    print('alpha psd shape:', np.shape(alpha_psd))
+                    print('beta psd shape:', np.shape(beta_psd))
 
                     if add_quality == True: # num_channels (+1)
                         signal_data = np.append(signal_data, [quality_score * signal_data.shape[1]], axis=0)
@@ -278,7 +285,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         else:
             print("am I here")
-            print(hp.get_patient_id(patient_metadata))
+            # print(hp.get_patient_id(patient_metadata))
             available_signal_data = delta_psd_data = theta_psd_data = alpha_psd_data = beta_psd_data = np.hstack(float('nan') * np.ones(num_channels))
             available_signal_data = np.empty((1, 30000, 18))
             available_signal_data.fill(np.NaN)
