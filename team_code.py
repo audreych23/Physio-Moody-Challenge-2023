@@ -58,6 +58,19 @@ def create_model_lstm(input_data, output_type):
 
     return tf.keras.models.Model(inputs, outputs)
 
+def model_lstm(timesteps, features_shape, num_classes):
+    # timesteps x features
+    inputs = tf.keras.layers.Input(
+        shape=(timesteps, features_shape)
+    )
+    x = tf.keras.layers.LSTM(128)(inputs)
+    x = tf.keras.layers.Flatten()(x)
+    x = tf.keras.layers.Dense(8, activation='relu')(x)
+    outputs = tf.keras.layers.Dense(num_classes, activation='relu')(x)
+
+    return tf.keras.models.Model(inputs, outputs)
+
+
 # Train your model.
 def train_challenge_model(data_folder, model_folder, verbose):
     # Create a folder for the model if it does not already exist.
@@ -95,7 +108,8 @@ def train_challenge_model(data_folder, model_folder, verbose):
 
     # PARAMETERS
     # time smaple x channel
-    dimension = (30000, 18)
+    # hardcoding (but this is for delta psd iirc)
+    dimension = (72, 342)
     num_classes = 2
     
     # Training parameters
@@ -111,7 +125,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
         validation_generator = dg.DataGenerator(patient_ids_val, validation_folder, dim=dimension, batch_size=batch_size, threshold=threshold)
 
     # Create Model
-    model_outcome = create_model(dimension[1], dimension[0], num_classes)
+    model_outcome = model_lstm(dimension[0], dimension[1], num_classes)
 
     # Train Model
     if verbose >= 1:
