@@ -44,7 +44,7 @@ def plot_roc_graph(tpr, fpr, graph_folder, graph_name="roc_graph.png"):
 
     return
 
-def plot_accuracy_curve(history, graph_folder, graph_name="accuracy_curve.png"):
+def plot_accuracy_curve_history(history, graph_folder, graph_name="accuracy_curve.png"):
     plt.figure()
     plt.plot(history.history['accuracy'])
     if ('val_accuracy' in history.history):
@@ -59,7 +59,22 @@ def plot_accuracy_curve(history, graph_folder, graph_name="accuracy_curve.png"):
     plt.savefig(os.path.join(graph_folder, graph_name))
     return
 
-def plot_loss_curve(history, graph_folder, graph_name='loss_curve.png'):
+def plot_accuracy_curve_dict(history, graph_folder, graph_name="accuracy_curve.png"):
+    plt.figure()
+    plt.plot(history['accuracy'])
+    if ('val_accuracy' in history):
+        plt.plot(history['val_accuracy'])
+    plt.title('model_accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    if ('val_accuracy' in history):
+        plt.legend(['train', 'val'], loc='upper left')
+    else:
+        plt.legend(['train'], loc='upper left')
+    plt.savefig(os.path.join(graph_folder, graph_name))
+    return
+
+def plot_loss_curve_history(history, graph_folder, graph_name='loss_curve.png'):
     plt.figure()
     plt.plot(history.history['loss'])
     if ('val_loss' in history.history):
@@ -74,6 +89,20 @@ def plot_loss_curve(history, graph_folder, graph_name='loss_curve.png'):
     plt.savefig(os.path.join(graph_folder, graph_name))
     return
 
+def plot_loss_curve_dict(history, graph_folder, graph_name='loss_curve.png'):
+    plt.figure()
+    plt.plot(history['loss'])
+    if ('val_loss' in history):
+        plt.plot(history['val_loss'])
+    plt.title('model_loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    if ('val_loss' in history):
+        plt.legend(['train', 'val'], loc='upper left')
+    else:
+        plt.legend(['train'], loc='upper left')
+    plt.savefig(os.path.join(graph_folder, graph_name))
+    return
 
 def plot_data_graph(list_patient_ids, data_folder, graph_folder, graph_name="data_outcome_count.png"):
     """Plot the label data (cpc data) with the count of the data

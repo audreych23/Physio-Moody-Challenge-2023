@@ -11,7 +11,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         i.e. if batch_size is 4, and each patient has 15, 32, 42, 52 hours then available_h_in_patient_per_batch_size = 15 + 32 + 42 + 52
     """
     def __init__(self, patient_ids, data_path, dim = (30000, 18), 
-               to_fit = True, batch_size = 8, num_classes = 2, threshold = 48,
+               to_fit = True, batch_size = 8, threshold = 48,
                shuffle = True):
         """Constructor
 
@@ -32,7 +32,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.dim = dim
         self.shuffle = shuffle
-        self.num_classes = num_classes
         self.threshold = threshold
         self.on_epoch_end()
     
@@ -67,10 +66,11 @@ class DataGenerator(tf.keras.utils.Sequence):
         # Generate data
         # dim of x data depends on batch size and available hours per patient
         x_data, len_x_datas = self._generate_x_data(patient_ids_batch)
+
         print("X data has finished generating...")
 
         if self.to_fit:
-            y_data = self._generate_y_data(patient_ids_batch, self.num_classes, len_x_datas)
+            y_data = self._generate_y_data(patient_ids_batch, len_x_datas)
             print("y data has finished generating...")
             print("shape of x and y data", np.shape(x_data), np.shape(y_data))
             return x_data, y_data
@@ -116,10 +116,12 @@ class DataGenerator(tf.keras.utils.Sequence):
         
         x_data = np.array(x_data)
         x_data = np.vstack(x_data)
+        # if eeg net we have to transpose (swap index 1 and 2)
+        x_data = np.transpose(x_data, (0, 2, 1))
         assert not np.any(np.isnan(x_data))
         return x_data, len_x_datas
 
-    def _generate_y_data(self, patient_ids_batch, num_classes, len_x_datas):
+    def _generate_y_data(self, patient_ids_batch, len_x_datas):
         """Generate y data of batch_size data
 
         Args:

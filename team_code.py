@@ -20,6 +20,7 @@ from scipy import stats as st
 from sklearn.model_selection import KFold
 import data_generator as dg
 import graphing as plotter
+from custom_train import *
 # for reproducability
 seed = 1
 np.random.seed(seed)
@@ -100,9 +101,6 @@ def average(lst):
 
 # Train your model.
 def train_challenge_model(data_folder, model_folder, verbose):
-    # time smaple x channel
-    dimension = (30000, 18)
-
     # Create a folder for the model if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
     # Create a folder for the graph if it does not already exist.
@@ -159,34 +157,48 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # model_lstm_outcome = compile_model(model_lstm_outcome)
     # swap it when
     # we use eeg net -> (30000, 18) not (18, 30000)
-    
 
+    # PARAMETERS
+    # time smaple x channel
+    dimension = (30000, 18)
+    num_classes = 2
+    
+    # Training parameters
+    batch_size = 1
+    epochs = 1
+    
     if verbose >= 1:
         print('Creating data generator...')
 
-    training_generator = dg.DataGenerator(patient_ids_train, training_folder, dim=dimension, batch_size=2, num_classes=2, threshold=threshold)
+    training_generator = dg.DataGenerator(patient_ids_train, training_folder, dim=dimension, batch_size=batch_size, threshold=threshold)
     if validation:
-        validation_generator = dg.DataGenerator(patient_ids_val, validation_folder, dim=dimension, batch_size=2, num_classes=2, threshold=threshold)
+        validation_generator = dg.DataGenerator(patient_ids_val, validation_folder, dim=dimension, batch_size=batch_size, threshold=threshold)
     # model_cpc = create_model(dimension[1], dimension[0], 5)
     # model_cpc = compile_model(model_cpc)
-    model_outcome = create_model(dimension[1], dimension[0], 2)
-    model_outcome = compile_model(model_outcome)
+    model_outcome = create_model(dimension[1], dimension[0], num_classes)
+    # model_outcome = compile_model(model_outcome)
     if verbose >= 1:
         print('Training the Challenge models on the Challenge data...')
 
-    # Train model
-    if validation: 
-        # history_cpc = model_cpc.fit(training_generator, validation_data=validation_generator, epochs=5)
-        history_outcome = model_outcome.fit(training_generator, validation_data=validation_generator, epochs=5)
+
+    # output of a custom fit is dictionary
+    if validation:
+        history_outcome = custom_fit(model_outcome, epochs, training_generator, validation_generator)
     else:
-        # history_cpc = model_cpc.fit(training_generator, epochs=5)
-        history_outcome = model_outcome.fit(training_generator, epochs=5)
+        history_outcome = custom_fit(model_outcome, epochs, training_generator)
+    # Train model
+    # if validation: 
+    #     # history_cpc = model_cpc.fit(training_generator, validation_data=validation_generator, epochs=5)
+    #     history_outcome = model_outcome.fit(training_generator, validation_data=validation_generator, epochs=5)
+    # else:
+    #     # history_cpc = model_cpc.fit(training_generator, epochs=5)
+    #     history_outcome = model_outcome.fit(training_generator, epochs=5)
     # Plot both loss and accuracy 
     # plotter.plot_loss_curve(history_cpc, graph_folder)
     # plotter.plot_accuracy_curve(history_cpc, graph_folder)
 
-    plotter.plot_loss_curve(history_outcome, graph_folder)
-    plotter.plot_accuracy_curve(history_outcome, graph_folder)
+    plotter.plot_loss_curve_dict(history_outcome, graph_folder)
+    plotter.plot_accuracy_curve_dict(history_outcome, graph_folder)
     # Create a folder for the model if it does not already exist.
     # save_challenge_model_lstm(model_folder, model_cpc, "model_cpc")
     save_challenge_model_lstm(model_folder, model_outcome, "model_outcome")
