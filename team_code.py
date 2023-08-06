@@ -58,47 +58,6 @@ def create_model_lstm(input_data, output_type):
 
     return tf.keras.models.Model(inputs, outputs)
 
-
-def compile_model(model, lr=0.00001, loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True), metrics=[tf.keras.metrics.SparseCategoricalAccuracy()]):
-    """
-        param:
-            model: the model wish to be compiled
-            lr : learning_rate
-            loss : the loss function for training model
-            metrics : the metrics to evaluate the model
-        returns
-            the model compiled
-    """
-    model.compile(loss=loss, optimizer=tf.keras.optimizers.Adam(learning_rate=lr), metrics=metrics)
-    return model
-    # model.fit(x_train, y_train, validation_data=(x_val, y_val), epochs=10)
-    
-
-def prepare_label(model_type, patient_metadata, available_signal_data):
-    # model type is an integer from 1, 2, 3
-    outcomes = list()
-    cpcs = list()
-    if model_type == 1:
-        current_outcome = get_outcome(patient_metadata)
-        current_cpc = get_cpc(patient_metadata)
-        for i in range(available_signal_data.shape[0]):
-            outcomes.append(current_outcome)
-            # force it to be 0 to 4 cpc then reconvert it later
-            cpcs.append(current_cpc - 1)
-    elif model_type == 2:
-        current_outcome = get_outcome(patient_metadata)
-        current_cpc = get_cpc(patient_metadata)
-        outcomes.append(current_outcome)
-        cpcs.append(current_cpc)
-    else:
-        raise Exception("this model_type have not been implemented")
-    
-    return outcomes, cpcs
-
-# average of a list
-def average(lst):
-    return sum(lst)/len(lst)
-
 # Train your model.
 def train_challenge_model(data_folder, model_folder, verbose):
     # Create a folder for the model if it does not already exist.
@@ -117,13 +76,12 @@ def train_challenge_model(data_folder, model_folder, verbose):
         validation_folder = os.path.join(data_folder, 'validation')
         training_folder = os.path.join(data_folder, 'training')
     
-    # for debugging purpose
-    print_flag = 1
     # Find data files.
     if verbose >= 1:
         print('Finding the Challenge data...')
 
     patient_ids_train = find_data_folders(training_folder)
+
     if (validation):
         patient_ids_val = find_data_folders(validation_folder)
     num_patients_train = len(patient_ids_train)
@@ -135,72 +93,41 @@ def train_challenge_model(data_folder, model_folder, verbose):
     if verbose >= 1:
         print('Extracting features and labels from the Challenge data...')
 
-    # outcomes_random_forest = list()
-    # cpcs_random_forest = list()
-
-    # this is a list where the index of the list is equal to the current element on the list
-    # say that on the first patient we have 50 hours of eeg recording, 2nd has 30 hours
-    # prefix_sum_index[1] = 50, prefix_sum_index[2] = 50 + 30 = 80
-    prefix_sum_index = list()
-    prefix_sum_index.append(0)
-
-    num_patients_stored = 0
-    # model creation here : input dummy shape 
-    # model_lstm_outcome = create_lstm_model(np.zeros((1, 18, 30000)), "outcome")
-    # model_lstm_outcome.summary()
-    # model_lstm_outcome = compile_model(model_lstm_outcome)
-    
-    # model_lstm_cpc = create_model_lstm(np.zeros((1, 18, 30000)), "cpc")
-    # model_lstm_cpc.summary()
-    # model_lstm_cpc = compile_model(model_lstm_cpc)
-    # model_lstm_outcome = create_model(18, 30000, 2)
-    # model_lstm_outcome = compile_model(model_lstm_outcome)
-    # swap it when
-    # we use eeg net -> (30000, 18) not (18, 30000)
-
     # PARAMETERS
     # time smaple x channel
     dimension = (30000, 18)
     num_classes = 2
     
     # Training parameters
-    batch_size = 1
+    batch_size = 2
     epochs = 1
-    
+
+    # Create Data Generator
     if verbose >= 1:
         print('Creating data generator...')
 
     training_generator = dg.DataGenerator(patient_ids_train, training_folder, dim=dimension, batch_size=batch_size, threshold=threshold)
     if validation:
         validation_generator = dg.DataGenerator(patient_ids_val, validation_folder, dim=dimension, batch_size=batch_size, threshold=threshold)
-    # model_cpc = create_model(dimension[1], dimension[0], 5)
-    # model_cpc = compile_model(model_cpc)
+
+    # Create Model
     model_outcome = create_model(dimension[1], dimension[0], num_classes)
-    # model_outcome = compile_model(model_outcome)
+
+    # Train Model
     if verbose >= 1:
         print('Training the Challenge models on the Challenge data...')
 
-
-    # output of a custom fit is dictionary
+    # output of a custom fit is dictionary (for now)
     if validation:
         history_outcome = custom_fit(model_outcome, epochs, training_generator, validation_generator)
     else:
         history_outcome = custom_fit(model_outcome, epochs, training_generator)
-    # Train model
-    # if validation: 
-    #     # history_cpc = model_cpc.fit(training_generator, validation_data=validation_generator, epochs=5)
-    #     history_outcome = model_outcome.fit(training_generator, validation_data=validation_generator, epochs=5)
-    # else:
-    #     # history_cpc = model_cpc.fit(training_generator, epochs=5)
-    #     history_outcome = model_outcome.fit(training_generator, epochs=5)
-    # Plot both loss and accuracy 
-    # plotter.plot_loss_curve(history_cpc, graph_folder)
-    # plotter.plot_accuracy_curve(history_cpc, graph_folder)
 
+    # Plot graph
     plotter.plot_loss_curve_dict(history_outcome, graph_folder)
     plotter.plot_accuracy_curve_dict(history_outcome, graph_folder)
-    # Create a folder for the model if it does not already exist.
-    # save_challenge_model_lstm(model_folder, model_cpc, "model_cpc")
+
+    # Save model
     save_challenge_model_lstm(model_folder, model_outcome, "model_outcome")
     if verbose >= 1:
         print('Done.')
