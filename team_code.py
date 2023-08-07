@@ -27,7 +27,7 @@ np.random.seed(seed)
 tf.random.set_seed(seed)
 
 # only use cpu
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 # parameters that can be modified
 threshold = 48
 ################################################################################
@@ -59,16 +59,48 @@ def create_model_lstm(input_data, output_type):
     return tf.keras.models.Model(inputs, outputs)
 
 def model_lstm(timesteps, features_shape, num_classes):
+    # delta model
     # timesteps x features
-    inputs = tf.keras.layers.Input(
-        shape=(timesteps, features_shape)
+    delta_inputs = tf.keras.layers.Input(
+        shape=(timesteps, features_shape[0])
     )
-    x = tf.keras.layers.LSTM(128)(inputs)
-    x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(8, activation='relu')(x)
-    outputs = tf.keras.layers.Dense(num_classes, activation='relu')(x)
+    delta_l1 = tf.keras.layers.Masking(mask_value=0.)(delta_inputs)
+    delta_l2 = tf.keras.layers.LSTM(128)(delta_l1)
+    delta_l3 = tf.keras.layers.Dense(32, activation='relu')(delta_l2)
 
-    return tf.keras.models.Model(inputs, outputs)
+    # theta model
+    theta_inputs = tf.keras.layers.Input(
+        shape=(timesteps, features_shape[1])
+    )
+    theta_l1 = tf.keras.layers.Masking(mask_value=0.)(theta_inputs)
+    theta_l2 = tf.keras.layers.LSTM(128)(theta_l1)
+    theta_l3 = tf.keras.layers.Dense(16, activation='relu')(theta_l2)
+
+    # alpha model
+    alpha_inputs = tf.keras.layers.Input(
+        shape=(timesteps, features_shape[2])
+    )
+    alpha_l1 = tf.keras.layers.Masking(mask_value=0.)(alpha_inputs)
+    alpha_l2 = tf.keras.layers.LSTM(128)(alpha_l1)
+    alpha_l3 = tf.keras.layers.Dense(16, activation='relu')(alpha_l2)
+
+    # beta model
+    beta_inputs = tf.keras.layers.Input(
+        shape=(timesteps, features_shape[3])
+    )
+    beta_l1 = tf.keras.layers.Masking(mask_value=0.)(beta_inputs)
+    beta_l2 = tf.keras.layers.LSTM(128)(beta_l1)
+    beta_l3 = tf.keras.layers.Dense(32, activation='relu')(beta_l2)
+    
+    # Merge all the models
+    concatenated_layers = tf.keras.layers.concatenate([delta_l3, theta_l3, alpha_l3, beta_l3])
+
+    concatenated_l4 = tf.keras.layers.Dense(32, activation='relu')(concatenated_layers)
+    output_layer = tf.keras.layers.Dense(num_classes)(concatenated_l4)
+
+    merged_model = tf.keras.models.Model(inputs=[(delta_inputs, theta_inputs, alpha_inputs, beta_inputs)], outputs=[output_layer])
+    merged_model.summary()
+    return merged_model
 
 
 # Train your model.
@@ -109,23 +141,25 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # PARAMETERS
     # time smaple x channel
     # hardcoding (but this is for delta psd iirc)
-    dimension = (72, 342)
+    timesteps = 72
+    features = (342, 180, 180, 828)
+    # dimension = (72, 342)
     num_classes = 2
     
     # Training parameters
-    batch_size = 2
-    epochs = 1
+    batch_size = 16
+    epochs = 10
 
     # Create Data Generator
     if verbose >= 1:
         print('Creating data generator...')
 
-    training_generator = dg.DataGenerator(patient_ids_train, training_folder, dim=dimension, batch_size=batch_size, threshold=threshold)
+    training_generator = dg.DataGenerator(patient_ids_train, training_folder, batch_size=batch_size, threshold=threshold)
     if validation:
-        validation_generator = dg.DataGenerator(patient_ids_val, validation_folder, dim=dimension, batch_size=batch_size, threshold=threshold)
+        validation_generator = dg.DataGenerator(patient_ids_val, validation_folder, batch_size=batch_size, threshold=threshold)
 
     # Create Model
-    model_outcome = model_lstm(dimension[0], dimension[1], num_classes)
+    model_outcome = model_lstm(timesteps, features, num_classes)
 
     # Train Model
     if verbose >= 1:
@@ -178,23 +212,27 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     ])
     # Load data.
     patient_metadata, recording_metadata, recording_data = load_challenge_data(data_folder, patient_id)
-
     # Extract features.
     # patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
     # patient_features = patient_features.reshape(1, -1)
-    available_signal_data = get_features(patient_metadata, recording_metadata, recording_data, threshold)
-    outcome_pred = probability_model.predict(np.reshape(available_signal_data, (-1, 18, 30000)))
+    patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data, threshold)
+    delta_psd_data = _arr_transformations_model(delta_psd_data)
+    theta_psd_data = _arr_transformations_model(theta_psd_data)
+    alpha_psd_data = _arr_transformations_model(alpha_psd_data)
+    beta_psd_data = _arr_transformations_model(beta_psd_data)
+
+    outcome_pred = probability_model.predict((delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data))
     print("patient id: ", patient_id)
     print("outcome softmax: ", outcome_pred)
     print(np.shape(outcome_pred))
-    summed_outcome_pred = np.sum(outcome_pred, axis=0)
-    avg_outcome_pred = summed_outcome_pred / np.shape(outcome_pred)[0]
-    avg_outcome_pred = np.array([avg_outcome_pred])
+    # summed_outcome_pred = np.sum(outcome_pred, axis=0)
+    # avg_outcome_pred = summed_outcome_pred / np.shape(outcome_pred)[0]
+    # avg_outcome_pred = np.array([avg_outcome_pred])
     # 0 and 1 index is cpc 1 and 2, 2 3 4 index is cpc 3, 4, and 5
-    print(avg_outcome_pred)
-    outcome_probability = avg_outcome_pred[0][1]
+    # print(avg_outcome_pred)
+    outcome_probability = outcome_pred[0][1]
     print("outcome_proba: ", outcome_probability)
-    outcome_pred = np.argmax(avg_outcome_pred, axis=1).astype(np.int64)
+    outcome_pred = np.argmax(outcome_pred, axis=1).astype(np.int64)
     print("outcome predict: ", outcome_pred)
     if (outcome_pred[0] < 1):
         # good
@@ -245,6 +283,16 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
 # Optional functions. You can change or remove these functions and/or add new functions.
 #
 ################################################################################
+def _arr_transformations_model(self, data_arr):
+    """Convert from (X, Y, Z) into (X, Y * Z) into (72, Y * Z) into (1, 72, Y * Z) given X <= 72 to feed to the model
+    """
+    data_shape = np.shape(data_arr)
+    data_arr = np.reshape(data_arr, (data_shape[0], data_shape[1] * data_shape[2]))
+    data_arr = self._pad_timeseries_arr(data_arr)
+    data_shape = np.shape(data_arr)
+    data_arr = np.reshape(data_arr, (1, *data_shape))
+    data_arr = np.asarray(data_arr).astype(np.float32)
+    return data_arr
 
 # Save your trained model.
 def save_challenge_model(model_folder, imputer, outcome_model, cpc_model):

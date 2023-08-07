@@ -85,7 +85,7 @@ def custom_fit(model, num_epochs, training_data_gen, validation_data_gen=None):
         # Training loop - using batches of batch_size 
         # x_batch dim : (batch_size, *dim(x)), y_batch dim : (batch_size, *dim(y))
         for x_batch, y_batch in training_data_gen:
-            print("x_batch shape:", np.shape(x_batch), ", y_batch shape:", np.shape(y_batch))
+            # print("x_batch shape:", np.shape(x_batch), ", y_batch shape:", np.shape(y_batch))
             time.sleep(0.3)
             # Optimize the model (forward pass and back propagate)
             loss_value, grads = grad(model, loss_fn, x_batch, y_batch)
@@ -105,7 +105,7 @@ def custom_fit(model, num_epochs, training_data_gen, validation_data_gen=None):
             prog_bar_epoch.add(1, values=prog_bar_values)
 
         # End epoch
-        # train_loss_results.append(epoch_loss_avg.result())
+        train_loss_results.append(epoch_loss_avg.result())
         train_accuracy_results.append(epoch_accuracy.result())
 
     # Some simple trade off dumb stuff you can do ;D

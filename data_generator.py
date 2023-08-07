@@ -10,7 +10,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         Dimension of the actual data depends on each patient hours data availability and batch_size
         i.e. if batch_size is 4, and each patient has 15, 32, 42, 52 hours then available_h_in_patient_per_batch_size = 15 + 32 + 42 + 52
     """
-    def __init__(self, patient_ids, data_path, dim = (30000, 18), 
+    def __init__(self, patient_ids, data_path,
                to_fit = True, batch_size = 8, threshold = 48,
                shuffle = True):
         """Constructor
@@ -30,7 +30,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.data_path = data_path
         self.to_fit = to_fit
         self.batch_size = batch_size
-        self.dim = dim
         self.shuffle = shuffle
         self.threshold = threshold
         self.on_epoch_end()
@@ -79,9 +78,9 @@ class DataGenerator(tf.keras.utils.Sequence):
             # print("shape of x and y data", np.shape(x_data), np.shape(y_data))
             assert np.shape(y_data)[0] == len(patient_ids_batch)
 
-            return delta_psd_data, y_data
+            return (delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data), y_data
         else:
-            return delta_psd_data
+            return (delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data)
         
     def on_epoch_end(self):
         """Shuffle the indexes after each end of epoch
@@ -124,7 +123,6 @@ class DataGenerator(tf.keras.utils.Sequence):
             theta_psd_data = self._arr_transformations_model(theta_psd_data)
             alpha_psd_data = self._arr_transformations_model(alpha_psd_data)
             beta_psd_data = self._arr_transformations_model(beta_psd_data)
-            print(np.shape(delta_psd_data))
             # print("available_signal_data: ", np.shape(available_signal_data))
             list_delta_psd_data.append(delta_psd_data)
             list_theta_psd_data.append(theta_psd_data)
@@ -158,7 +156,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         # if eeg net we have to transpose (swap index 1 and 2)
         # x_data = np.transpose(x_data, (0, 2, 1))
         # Sanity check
-        print(np.shape(list_delta_psd_data), np.shape(list_theta_psd_data), np.shape(list_alpha_psd_data), np.shape(list_beta_psd_data))
+        # print(np.shape(list_delta_psd_data), np.shape(list_theta_psd_data), np.shape(list_alpha_psd_data), np.shape(list_beta_psd_data))
         return list_delta_psd_data, list_theta_psd_data, list_alpha_psd_data, list_beta_psd_data
 
     def _arr_transformations_model(self, data_arr):
@@ -177,8 +175,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         current_shape = np.shape(data_arr)
         rows_to_pad = desired_time_pad - current_shape[0]
         padded_arr = np.pad(data_arr, ((0, rows_to_pad), (0, 0)), mode='constant')
-        print(padded_arr)
-        print(np.shape(padded_arr))
         return padded_arr
     
     def _generate_y_data(self, patient_ids_batch):
@@ -210,7 +206,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         # Do one hot encoding
         # y_data = tf.keras.utils.to_categorical(y_data, num_classes)
         # y_data = np.reshape(y_data, (batch_size, num_classes)).astype(int)
-        print(np.shape(y_data))
 
         return y_data
     
@@ -288,7 +283,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         theta_psd_data = list()
         alpha_psd_data = list()
         beta_psd_data  = list()
-        print('num recordings:', num_recordings)
+        # num recordings is always 72
         for i in range(num_recordings):
             signal_data, sampling_frequency, signal_channels = recording_data[i]
             if signal_data is not None:
