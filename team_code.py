@@ -204,18 +204,23 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
     # imputer = random_tree_model['imputer']
     # outcome_model = random_tree_model['outcome_model']
     # cpc_model = random_tree_model['cpc_model']
-    
+
     outcome_model = models
-    probability_model = tf.keras.Sequential([
-        outcome_model,
-        tf.keras.layers.Softmax()
-    ])
+
+    # probability_model = tf.keras.Sequential([
+    #     outcome_model,
+    #     tf.keras.layers.Softmax()
+    # ])
     # Load data.
+    softmax_layer = tf.keras.layers.Softmax()(outcome_model.output)
+    probability_model = tf.keras.models.Model(inputs=outcome_model.input, outputs=softmax_layer)
+    probability_model.summary()
     patient_metadata, recording_metadata, recording_data = load_challenge_data(data_folder, patient_id)
     # Extract features.
     # patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data)
     # patient_features = patient_features.reshape(1, -1)
     patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = get_features(patient_metadata, recording_metadata, recording_data, threshold)
+    print(np.shape(delta_psd_data))
     delta_psd_data = _arr_transformations_model(delta_psd_data)
     theta_psd_data = _arr_transformations_model(theta_psd_data)
     alpha_psd_data = _arr_transformations_model(alpha_psd_data)
@@ -283,16 +288,22 @@ def run_challenge_models(models, data_folder, patient_id, verbose):
 # Optional functions. You can change or remove these functions and/or add new functions.
 #
 ################################################################################
-def _arr_transformations_model(self, data_arr):
+def _arr_transformations_model(data_arr):
     """Convert from (X, Y, Z) into (X, Y * Z) into (72, Y * Z) into (1, 72, Y * Z) given X <= 72 to feed to the model
     """
     data_shape = np.shape(data_arr)
     data_arr = np.reshape(data_arr, (data_shape[0], data_shape[1] * data_shape[2]))
-    data_arr = self._pad_timeseries_arr(data_arr)
+    data_arr = _pad_timeseries_arr(data_arr)
     data_shape = np.shape(data_arr)
     data_arr = np.reshape(data_arr, (1, *data_shape))
     data_arr = np.asarray(data_arr).astype(np.float32)
     return data_arr
+
+def _pad_timeseries_arr(data_arr, desired_time_pad=72):
+    current_shape = np.shape(data_arr)
+    rows_to_pad = desired_time_pad - current_shape[0]
+    padded_arr = np.pad(data_arr, ((0, rows_to_pad), (0, 0)), mode='constant')
+    return padded_arr
 
 # Save your trained model.
 def save_challenge_model(model_folder, imputer, outcome_model, cpc_model):
@@ -550,33 +561,32 @@ def get_features(patient_metadata, recording_metadata, recording_data, threshold
     beta_psd_data  = list()
 
     for i in range(num_recordings):
-        if i >= (threshold - 1):
-            signal_data, sampling_frequency, signal_channels = recording_data[i]
-            if signal_data is not None:
-                signal_data = reorder_recording_channels(signal_data, signal_channels, channels) # Reorder the channels in the signal data, as needed, for consistency across different recordings.
+        signal_data, sampling_frequency, signal_channels = recording_data[i]
+        if signal_data is not None:
+            signal_data = reorder_recording_channels(signal_data, signal_channels, channels) # Reorder the channels in the signal data, as needed, for consistency across different recordings.
+        
+            delta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=0.5,  fmax=8.0, verbose=False)
+            theta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=4.0,  fmax=8.0, verbose=False)
+            alpha_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=8.0, fmax=12.0, verbose=False)
+            beta_psd,  _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency, fmin=12.0, fmax=30.0, verbose=False)
+            quality_score = list()
+            quality_score.append(quality_scores[i])
+
+            if add_quality == True: # num_channels (+1)
+                signal_data = np.append(signal_data, [quality_score * signal_data.shape[1]], axis=0)
+                delta_psd   = np.append(delta_psd, [quality_score * delta_psd.shape[1]], axis=0)
+                theta_psd   = np.append(theta_psd, [quality_score * theta_psd.shape[1]], axis=0)
+                alpha_psd   = np.append(alpha_psd, [quality_score * alpha_psd.shape[1]], axis=0)
+                beta_psd    = np.append(beta_psd, [quality_score * beta_psd.shape[1]], axis=0)                
+
+            # DEBUG
+            # print("shapes:", signal_data.shape, delta_psd.shape, theta_psd.shape, alpha_psd.shape, beta_psd.shape)
             
-                delta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=0.5,  fmax=8.0, verbose=False)
-                theta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=4.0,  fmax=8.0, verbose=False)
-                alpha_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=8.0, fmax=12.0, verbose=False)
-                beta_psd,  _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency, fmin=12.0, fmax=30.0, verbose=False)
-                quality_score = list()
-                quality_score.append(quality_scores[i])
-
-                if add_quality == True: # num_channels (+1)
-                    signal_data = np.append(signal_data, [quality_score * signal_data.shape[1]], axis=0)
-                    delta_psd   = np.append(delta_psd, [quality_score * delta_psd.shape[1]], axis=0)
-                    theta_psd   = np.append(theta_psd, [quality_score * theta_psd.shape[1]], axis=0)
-                    alpha_psd   = np.append(alpha_psd, [quality_score * alpha_psd.shape[1]], axis=0)
-                    beta_psd    = np.append(beta_psd, [quality_score * beta_psd.shape[1]], axis=0)                
-
-                # DEBUG
-                # print("shapes:", signal_data.shape, delta_psd.shape, theta_psd.shape, alpha_psd.shape, beta_psd.shape)
-                
-                available_signal_data.append(signal_data)
-                delta_psd_data.append(delta_psd)
-                theta_psd_data.append(theta_psd)
-                alpha_psd_data.append(alpha_psd)
-                beta_psd_data.append(beta_psd)
+            available_signal_data.append(signal_data)
+            delta_psd_data.append(delta_psd)
+            theta_psd_data.append(theta_psd)
+            alpha_psd_data.append(alpha_psd)
+            beta_psd_data.append(beta_psd)
             
 
     if len(available_signal_data) > 0:
@@ -623,6 +633,6 @@ def get_features(patient_metadata, recording_metadata, recording_data, threshold
     # if (verbose >= 1):
     #     print("features shape:", features.shape)
     # Combine the features from the patient metadata and the recording data and metadata.
-    return available_signal_data
+    return patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data
     # return patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data
 
