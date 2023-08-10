@@ -24,7 +24,6 @@ class DataGenerator(tf.keras.utils.Sequence):
             shuffle: Indicate if the data will be shuffled after each epoch
         """
         # lets do something stupid by first taking data from only one lstm data which is the recentmost
-        # self.patient_ids_idx = patient_ids_idx
         self.patient_ids = patient_ids
         self.patient_ids_index = np.arange(len(patient_ids))
         self.data_path = data_path
@@ -103,14 +102,12 @@ class DataGenerator(tf.keras.utils.Sequence):
             len_x_datas: list of the length of each data per patient in batch (useful to duplicate y_data) 
         """
         # Initialization
-        # batch_size = len(patient_ids_batch)
-        # x_data = np.empty((batch_size, *self.dim))
-        # x_data = list()
+
         list_delta_psd_data = list()
         list_theta_psd_data = list()
         list_alpha_psd_data = list()
         list_beta_psd_data = list()
-        # len_x_datas = list()
+
         # Generate data
         # length of list_ids_temp should be according to batch_size
         for i, patient_id in enumerate(patient_ids_batch):
@@ -137,12 +134,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         list_theta_psd_data = np.array(list_theta_psd_data, dtype=object)
         list_alpha_psd_data = np.array(list_alpha_psd_data, dtype=object)
         list_beta_psd_data = np.array(list_beta_psd_data, dtype=object)
-        
 
-        # list_delta_psd_data = np.reshape(list_delta_psd_data, (1, -1))
-        # list_theta_psd_data = np.reshape(list_theta_psd_data, (1, -1))
-        # list_alpha_psd_data = np.reshape(list_alpha_psd_data, (1, -1))
-        # list_beta_psd_data = np.reshape(list_beta_psd_data, (1, -1))
 
         list_delta_psd_data = np.vstack(list_delta_psd_data)
         list_theta_psd_data = np.vstack(list_theta_psd_data)
@@ -153,10 +145,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         list_theta_psd_data = np.asarray(list_theta_psd_data).astype(np.float32)
         list_alpha_psd_data = np.asarray(list_alpha_psd_data).astype(np.float32)
         list_beta_psd_data = np.asarray(list_beta_psd_data).astype(np.float32)
-        # if eeg net we have to transpose (swap index 1 and 2)
-        # x_data = np.transpose(x_data, (0, 2, 1))
-        # Sanity check
-        # print(np.shape(list_delta_psd_data), np.shape(list_theta_psd_data), np.shape(list_alpha_psd_data), np.shape(list_beta_psd_data))
+  
         return list_delta_psd_data, list_theta_psd_data, list_alpha_psd_data, list_beta_psd_data
 
     def _arr_transformations_model(self, data_arr):
@@ -193,19 +182,13 @@ class DataGenerator(tf.keras.utils.Sequence):
         for i, patient_id in enumerate(patient_ids_batch):
             # Store sample
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
-            # important to substract by one because of one hot encoding
-            # y_data[i,] = hp.get_cpc(patient_metadata) - 1
 
             outcome_data = hp.get_outcome(patient_metadata)
-            # outcome_data = self._duplicate_y_data(len_x_datas[i], outcome_data)
             y_data.append(outcome_data)
 
         y_data = np.array(y_data)
         y_data = np.vstack(y_data)
         y_data = np.asarray(y_data).astype(np.int32)
-        # Do one hot encoding
-        # y_data = tf.keras.utils.to_categorical(y_data, num_classes)
-        # y_data = np.reshape(y_data, (batch_size, num_classes)).astype(int)
 
         return y_data
     
@@ -268,7 +251,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         # Combine the patient features.
         patient_features = np.array([age, female, male, other, rosc, ohca, vfib, ttm])
-
+        print(patient_features)
         # Extract features from the recording data and metadata.
         channels = ['Fp1-F7', 'F7-T3', 'T3-T5', 'T5-O1', 'Fp2-F8', 'F8-T4', 'T4-T6', 'T6-O2', 'Fp1-F3',
                     'F3-C3', 'C3-P3', 'P3-O1', 'Fp2-F4', 'F4-C4', 'C4-P4', 'P4-O2', 'Fz-Cz', 'Cz-Pz']
@@ -293,6 +276,10 @@ class DataGenerator(tf.keras.utils.Sequence):
                 theta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=4.0,  fmax=8.0, verbose=False)
                 alpha_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=8.0, fmax=12.0, verbose=False)
                 beta_psd,  _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency, fmin=12.0, fmax=30.0, verbose=False)
+                # print(delta_psd)
+                # print(theta_psd)
+                # print(alpha_psd)
+                # print(beta_psd)
                 quality_score = list()
                 quality_score.append(quality_scores[i])
 
@@ -340,26 +327,8 @@ class DataGenerator(tf.keras.utils.Sequence):
             available_signal_data = np.empty((1, 30000, 18))
             available_signal_data.fill(np.NaN)
         
-        # DEBUG
-        # print("available_signal_data:", available_signal_data.shape) 
-        # print("delta_psd_data       :", delta_psd_data.shape)
-        # print("theta_psd_data       :", theta_psd_data.shape)
-        # print("alpha_psd_data       :", alpha_psd_data.shape)
-        # print("beta_psd_data        :", beta_psd_data.shape)
-
-        # if (verbose >= 1):
-        #     print("recording features shape:", recording_features.shape)
-        # # Combine the features from the patient metadata and the recording data and metadata.
-        # features = np.hstack((patient_features, recording_features))
-
         
-        # features = np.hstack((patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data))
-        # if (verbose >= 1):
-        #     print("features shape:", features.shape)
-        # Combine the features from the patient metadata and the recording data and metadata.
-        # return most recent available_signal_data[-1]
-        # return available_signal_data[-1]
-
+        
         return patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data
         # return available_signal_data
 

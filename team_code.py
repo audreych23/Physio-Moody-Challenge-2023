@@ -36,28 +36,6 @@ threshold = 48
 #
 ################################################################################
 
-# return a model
-def create_model_lstm(input_data, output_type):
-    """
-        param:
-            input_data: a nd array with 3 dimensions (batch, timesteps, features)
-            output_type: 0 or 1, where 0 is outcome and 1 is cpc
-        returns
-            model: tf.keras.models.Model type
-    """
-    inputs = tf.keras.layers.Input(
-        shape=(input_data.shape[1], input_data.shape[2])
-    )
-    x = tf.keras.layers.LSTM(4)(inputs)
-    x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(8, activation='relu')(x)
-    if output_type == "outcome":
-        outputs = tf.keras.layers.Dense(2, activation='softmax')(x)
-    else:
-        outputs = tf.keras.layers.Dense(5, activation='softmax')(x)
-
-    return tf.keras.models.Model(inputs, outputs)
-
 def model_lstm(timesteps, features_shape, num_classes):
     # delta model
     # timesteps x features
