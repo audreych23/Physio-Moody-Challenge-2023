@@ -42,7 +42,7 @@ python3 run_model.py /mnt/c/Users/audre/physionet/v1.0/model/ /mnt/c/Users/audre
 
 python3 run_model.py /mnt/c/Users/audre/physionet/v1.0/model/ /mnt/c/Users/audre/physionet/v1.0/data_test /mnt/c/Users/audre/physionet/v1.0/test_outputs
 
-python3 remove_data.py -i /mnt/c/Users/audre/physionet/v1.0/data_test -o /mnt/c/Users/audre/physionet/v1.0/label_outputs
+#python3 remove_data.py -i /mnt/c/Users/audre/physionet/v1.0/data_test -o /mnt/c/Users/audre/physionet/v1.0/label_outputs
 
 python3 evaluate_model.py /mnt/c/Users/audre/physionet/v1.0/data_test /mnt/c/Users/audre/physionet/v1.0/test_outputs /mnt/c/Users/audre/physionet/v1.0/experiment_result/scores1.csv
 python3 evaluate_model.py /mnt/c/Users/audre/physionet/v1.0/data_test /mnt/c/Users/audre/physionet/v1.0/test_outputs /mnt/c/Users/audre/physionet/v1.0/experiment_result/scores1.csv /mnt/c/Users/audre/physionet/v1.0/experiment_result/

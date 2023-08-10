@@ -50,6 +50,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         # Generate indexes of the batch
         # e.g. indexes[32 : 64]
         # corner case for high batch index where the last batch index is larger than the len of the data
+        print('index:', index)
         low_batch_index = index * self.batch_size
         high_batch_index = (index + 1) * self.batch_size
         if (len(self.patient_ids_index) < high_batch_index):
@@ -79,7 +80,7 @@ class DataGenerator(tf.keras.utils.Sequence):
 
             return (delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data), y_data
         else:
-            return (delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data)
+            return (delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data), 
         
     def on_epoch_end(self):
         """Shuffle the indexes after each end of epoch
@@ -110,8 +111,12 @@ class DataGenerator(tf.keras.utils.Sequence):
 
         # Generate data
         # length of list_ids_temp should be according to batch_size
+        print(patient_ids_batch)
         for i, patient_id in enumerate(patient_ids_batch):
             # Store sample
+            print(i)
+            print("wat", self.data_path)
+            print(patient_id)
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
             # just get most recent one - very simple
             patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = self._get_features(patient_metadata, recording_metadata, recording_data)
