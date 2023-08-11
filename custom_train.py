@@ -59,24 +59,24 @@ def custom_fit(model, num_epochs, training_data_gen, validation_data_gen=None):
     loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
     optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
     # Metrics parameter
-    epoch_accuracy = tf.keras.metrics.SparseCategoricalAccuracy()
+    train_accuracy_metric = tf.keras.metrics.SparseCategoricalAccuracy()
+    val_accuracy_metric = tf.keras.metrics.SparseCategoricalAccuracy()
 
     # Progress bar parameters
-    metrics_names = ['acc','loss']
-
-    # what about validation curve?
-
+    metrics_names = ['acc','loss', 'val_acc', 'val_loss']
 
     # Results (plotting)
     train_loss_results = []
     train_accuracy_results = []
+    val_loss_results = []
+    val_accuracy_results = []
 
     # Dummy dictinary that is similar to callbacks
     history = dict()
 
     for epoch in range(num_epochs):
-        epoch_loss_avg = tf.keras.metrics.Mean()
-        
+        train_loss_avg = tf.keras.metrics.Mean()
+        val_loss_avg = tf.keras.metrics.Mean()
 
         print("\nepoch {}/{}".format(epoch+1,num_epochs))
     
@@ -84,33 +84,56 @@ def custom_fit(model, num_epochs, training_data_gen, validation_data_gen=None):
 
         # Training loop - using batches of batch_size 
         # x_batch dim : (batch_size, *dim(x)), y_batch dim : (batch_size, *dim(y))
-        for x_batch, y_batch in training_data_gen:
+        for x_batch_train, y_batch_train in training_data_gen:
             # print("x_batch shape:", np.shape(x_batch), ", y_batch shape:", np.shape(y_batch))
             time.sleep(0.3)
             # Optimize the model (forward pass and back propagate)
-            loss_value, grads = grad(model, loss_fn, x_batch, y_batch)
+            loss_value, grads = grad(model, loss_fn, x_batch_train, y_batch_train)
             # Run one step of gradient descent by updating
             # the value of the variables to minimize the loss.
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
 
             # Track progress
-            epoch_loss_avg.update_state(loss_value)  # Add current batch loss
+            train_loss_avg.update_state(loss_value)  # Add current batch loss
             # Compare predicted label to actual label
             # training=True is needed only if there are layers with different
             # behavior during training versus inference (e.g. Dropout).
-            epoch_accuracy.update_state(y_batch, model(x_batch, training=True))
+            train_accuracy_metric.update_state(y_batch_train, model(x_batch_train, training=True))
 
-            prog_bar_values=[('acc', np.array(epoch_accuracy.result())), ('loss', np.array(epoch_loss_avg.result()))]
+            # Update progress bar every step (after batch_size batch is finished processing)
+            prog_bar_values=[('acc', np.array(train_accuracy_metric.result())), ('loss', np.array(train_loss_avg.result()))]
         
             prog_bar_epoch.add(1, values=prog_bar_values)
 
         # End epoch
-        train_loss_results.append(epoch_loss_avg.result())
-        train_accuracy_results.append(epoch_accuracy.result())
+        train_loss_results.append(train_loss_avg.result())
+        train_accuracy_results.append(train_accuracy_metric.result())
+        # Reset training metrics at the end of each epoch
+        train_accuracy_metric.reset_states()
+        train_loss_avg.reset_state()
+
+        # Run a validation loop at the end of each epoch.
+        for x_batch_val, y_batch_val in validation_data_gen:
+            loss_value = loss(model, loss_fn, x_batch_val, y_batch_val, training=False)
+            # Update val metrics
+            val_accuracy_metric.update_state(y_batch_val, model(x_batch_val, training=False))
+            val_loss_avg.update_state(loss_value)
+
+        val_accuracy_results.append(val_accuracy_metric.result())
+        val_loss_results.append(val_loss_avg.result())
+        val_accuracy_metric.reset_states()
+        val_loss_avg.reset_states()
+
+        prog_bar_values=[('acc', np.array(train_accuracy_results[-1])), ('loss', np.array(train_loss_results[-1])), 
+                         ('val_acc', np.array(val_accuracy_results[-1])), ('val_loss', np.array(val_loss_results[-1]))]
+        
+        prog_bar_epoch.add(0, values=prog_bar_values)
 
     # Some simple trade off dumb stuff you can do ;D
     history['accuracy'] = train_accuracy_results
     history['loss'] = train_loss_results
+    history['val_accuracy'] = val_accuracy_results
+    history['val_loss'] = val_loss_results
 
     return history
     # history['val_accuracy'] = None

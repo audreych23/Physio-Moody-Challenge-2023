@@ -39,33 +39,34 @@ threshold = 48
 
 # Train your model.
 def train_challenge_model(data_folder, model_folder, verbose):
+    # Disable This if we want without validation
+    validation = True
     # Create a folder for the model if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
     # Create a folder for the graph if it does not already exist.
     graph_folder = os.path.join(model_folder, "graph")
     os.makedirs(graph_folder, exist_ok=True)
     
-
-    # For submission
-    if not os.path.exists(os.path.join(data_folder, 'validation')) or not os.path.exists(os.path.join(data_folder, 'training')):
-        validation = False
-        training_folder = data_folder
-    else:
-        validation = True
-        validation_folder = os.path.join(data_folder, 'validation')
-        training_folder = os.path.join(data_folder, 'training')
-    
-
     # Find data files.
     if verbose >= 1:
         print('Finding the Challenge data...')
 
-    patient_ids_train = find_data_folders(training_folder)
-    if (validation):
-        patient_ids_val = find_data_folders(validation_folder)
-    num_patients_train = len(patient_ids_train)
+    patient_ids = find_data_folders(data_folder)
+    print(patient_ids)
+    
+    total_num_patients_train = len(patient_ids)
+    # 70 - 15 - 15 division for dataset
+    # Testing is on a different folder already, training is only 85% of the total data
+    num_patients_validation = np.ceil(total_num_patients_train * (20 / 100)).astype(np.int32)
+    num_patients_train = total_num_patients_train - num_patients_validation
 
-    if num_patients_train==0:
+    patient_ids_train = patient_ids[:num_patients_train]
+    patient_ids_val = patient_ids[num_patients_train:]
+    
+    print('# of training data:', len(patient_ids_train))
+    print('# of validation data:', len(patient_ids_val))
+
+    if total_num_patients_train==0:
         raise FileNotFoundError('No training data was provided.')
 
     # Extract the features and labels.
