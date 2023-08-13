@@ -6,6 +6,9 @@ def save_challenge_model(model_folder, imputer, outcome_model, cpc_model):
     filename = os.path.join(model_folder, 'models.sav')
     joblib.dump(d, filename, protocol=0)
 
-def save_challenge_model_lstm(model_folder, model, folder_name):
+def save_challenge_model_lstm(model_folder, model, imputer, folder_name):
     os.makedirs(os.path.join(model_folder, folder_name), exist_ok=True)
     model.save(os.path.join(model_folder, folder_name))
+    d = {'imputer': imputer}
+    filename = os.path.join(model_folder, folder_name, 'models.sav')
+    joblib.dump(d, filename, protocol=0)

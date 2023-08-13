@@ -1,6 +1,6 @@
 import sys
 from helper_code import *
-import graphing as plotter
+import preview_utilities.graphing as plotter
 import os
 
 os.environ['CUDA_VISIBLE_DEVICES'] ="0"

@@ -13,7 +13,7 @@ def preload_clinical_data(patient_ids, data_folder):
     list_patient_features = np.vstack(list_patient_features)
 
     print(np.shape(list_patient_features))
-    return
+    return list_patient_features
 
 def get_clinical_features(patient_metadata):
     # Extract features from the patient metadata.

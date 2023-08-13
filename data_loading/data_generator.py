@@ -11,7 +11,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         i.e. if batch_size is 4, and each patient has 15, 32, 42, 52 hours then available_h_in_patient_per_batch_size = 15 + 32 + 42 + 52
     """
     def __init__(self, patient_ids, data_path,
-               to_fit = True, batch_size = 8, threshold = 48,
+               to_fit = True, batch_size = 8, threshold = 48, imputer = None,
                shuffle = True):
         """Constructor
 
@@ -29,6 +29,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         self.data_path = data_path
         self.to_fit = to_fit
         self.batch_size = batch_size
+        self.imputer = imputer
         self.shuffle = shuffle
         self.threshold = threshold
         self.on_epoch_end()
@@ -115,6 +116,10 @@ class DataGenerator(tf.keras.utils.Sequence):
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
             # just get most recent one - very simple
             patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = self._get_features(patient_metadata, recording_metadata, recording_data)
+            if self.imputer is not None:
+                self.imputer.transform(patient_features)
+            else:
+                print('Warning there are nan values in the above, if this is not intended please put an imputer for nan values')
             
             delta_psd_data = self._arr_transformations_model(delta_psd_data)
             theta_psd_data = self._arr_transformations_model(theta_psd_data)

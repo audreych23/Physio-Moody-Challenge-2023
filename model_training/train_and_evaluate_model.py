@@ -2,13 +2,14 @@ import numpy as np
 from helper_code import *
 import numpy as np, os, sys
 import mne
-from sklearn.impute import SimpleImputer
+from data_preprocessing.impute_data import *
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-import data_generator as dg
-from models import *
-import graphing as plotter
-from custom_train import *
-from save_model import *
+import data_loading.data_generator as dg
+from models.models import *
+import preview_utilities.graphing as plotter
+from model_training.custom_train import *
+from model_utilities.save_model import *
+from data_preprocessing.preload_clinical_data import *
 
 # call this if you want to check for cross validation
 def k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, patient_ids, 
@@ -39,6 +40,11 @@ def k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, pa
         print(patient_ids_train, patient_ids_val)
         print(len(patient_ids_train), len(patient_ids_val))
 
+        print('Preload clinical data to train imputer...')
+        # preload all clinical data to get the imputer (not sure if we can do streaming on it)
+        preloaded_patient_features = preload_clinical_data(patient_ids_train, data_folder)
+        clinical_data_imputer = impute_clinical_data(missing_values = np.nan, strategy = 'mean')
+        clinical_data_imputer.fit(preloaded_patient_features)
 
         # Extract the features and labels.
         if verbose >= 1:
@@ -48,8 +54,8 @@ def k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, pa
         if verbose >= 1:
             print('Creating data generator...')
 
-        training_generator = dg.DataGenerator(patient_ids_train, data_folder, batch_size=batch_size)
-        validation_generator = dg.DataGenerator(patient_ids_val, data_folder, batch_size=batch_size)
+        training_generator = dg.DataGenerator(patient_ids_train, data_folder, batch_size=batch_size, imputer=clinical_data_imputer)
+        validation_generator = dg.DataGenerator(patient_ids_val, data_folder, batch_size=batch_size, imputer=clinical_data_imputer)
 
         # Create Model
         model_outcome = model_lstm(timesteps, features_dim, num_classes)
@@ -87,7 +93,13 @@ def train_and_evaluate_model(data_folder, model_folder, graph_folder, verbose, p
 
         if not validation:
             # Train whole data if no validaiton
-            training_generator = dg.DataGenerator(patient_ids, data_folder, batch_size=batch_size)
+            # preload all clinical data to get the imputer (not sure if we can do streaming on it)
+            preloaded_patient_features = preload_clinical_data(patient_ids, data_folder)
+            clinical_data_imputer = impute_clinical_data(missing_values = np.nan, strategy = 'mean')
+            clinical_data_imputer.fit(preloaded_patient_features)
+
+            training_generator = dg.DataGenerator(patient_ids, data_folder, batch_size=batch_size, imputer=clinical_data_imputer)
+
         else:
             total_num_patients_train = len(patient_ids)
 
@@ -96,8 +108,14 @@ def train_and_evaluate_model(data_folder, model_folder, graph_folder, verbose, p
 
             patient_ids_train = patient_ids[:num_patients_train]
             patient_ids_val = patient_ids[num_patients_train:]
-            training_generator = dg.DataGenerator(patient_ids_train, data_folder, batch_size=batch_size)
-            validation_generator = dg.DataGenerator(patient_ids_val, data_folder, batch_size=batch_size)
+
+            # preload all clinical data to get the imputer (not sure if we can do streaming on it)
+            preloaded_patient_features = preload_clinical_data(patient_ids_train, data_folder)
+            clinical_data_imputer = impute_clinical_data(missing_values = np.nan, strategy = 'mean')
+            clinical_data_imputer.fit(preloaded_patient_features)
+
+            training_generator = dg.DataGenerator(patient_ids_train, data_folder, batch_size=batch_size, imputer=clinical_data_imputer)
+            validation_generator = dg.DataGenerator(patient_ids_val, data_folder, batch_size=batch_size, imputer=clinical_data_imputer)
 
         # Create Model
         model_outcome = model_lstm(timesteps, features_dim, num_classes)
