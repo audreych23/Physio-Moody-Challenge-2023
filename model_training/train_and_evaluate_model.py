@@ -2,7 +2,7 @@ import numpy as np
 from helper_code import *
 import numpy as np, os, sys
 import mne
-from data_preprocessing.impute_data import *
+from data_preprocessing.data_preprocessing import *
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import data_loading.data_generator as dg
 from models.models import *
