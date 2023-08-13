@@ -71,7 +71,7 @@ def k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, pa
         plotter.plot_accuracy_curve_dict(history_outcome, graph_folder, f'accuracy_curve_{idx}.png')
 
         # Save model
-        save_challenge_model_lstm(model_folder, model_outcome, f"model_outcome_{idx}")
+        save_challenge_model_lstm(model_folder, model_outcome, clinical_data_imputer, f"model_outcome_{idx}")
         if verbose >= 1:
             print('Done.')
             
@@ -132,6 +132,6 @@ def train_and_evaluate_model(data_folder, model_folder, graph_folder, verbose, p
         plotter.plot_accuracy_curve_dict(history_outcome, graph_folder)
 
         # Save model
-        save_challenge_model_lstm(model_folder, model_outcome, "model_outcome")
+        save_challenge_model_lstm(model_folder, model_outcome, clinical_data_imputer, "model_outcome")
         if verbose >= 1:
             print('Done.')
