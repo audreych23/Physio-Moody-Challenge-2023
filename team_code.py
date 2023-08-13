@@ -33,7 +33,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # Disable This if validation is not used
     validation = True
     # Disable if k_fold is not used
-    use_k_fold_cross_validation = True
+    use_k_fold_cross_validation = False
     # Create a folder for the model if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
     # Create a folder for the graph if it does not already exist.
@@ -50,7 +50,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
     num_classes = 2
     
     # Training parameters
-    batch_size = 32
+    batch_size = 2
     epochs = 5
     threshold = 48
     # Find data files.

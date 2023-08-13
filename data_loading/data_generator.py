@@ -65,7 +65,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         # Generate data
         # dim of x data depends on batch size and available hours per patient
         # delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = self._generate_x_data(patient_ids_batch)
-        psd_features, patient_features = self._generate_x_data(patient_ids_batch)
+        patient_features, available_signal_data, len_x_datas = self._generate_x_data(patient_ids_batch)
 
         print("X data has finished generating...")
         # Sanity check if first dimension is batch size
@@ -73,14 +73,14 @@ class DataGenerator(tf.keras.utils.Sequence):
         #         and np.shape(alpha_psd_data)[0] == len(patient_ids_batch) and np.shape(beta_psd_data)[0] == len(patient_ids_batch)
         
         if self.to_fit:
-            y_data = self._generate_y_data(patient_ids_batch)
+            y_data = self._generate_y_data(patient_ids_batch, len_x_datas)
             print("y data has finished generating...")
             # print("shape of x and y data", np.shape(x_data), np.shape(y_data))
             assert np.shape(y_data)[0] == len(patient_ids_batch)
 
-            return (psd_features, patient_features), y_data
+            return (available_signal_data, patient_features), y_data
         else:
-            return (psd_features, patient_features), 
+            return (available_signal_data, patient_features), 
         
     def on_epoch_end(self):
         """Shuffle the indexes after each end of epoch
@@ -109,8 +109,10 @@ class DataGenerator(tf.keras.utils.Sequence):
         # list_alpha_psd_data = list()
         # list_beta_psd_data = list()
 
-        list_psd_features = list()
+        # list_psd_features = list()
         list_patient_features = list()
+        x_data = list()
+        len_x_datas = list()
 
         # Generate data
         # length of list_ids_temp should be according to batch_size
@@ -118,22 +120,24 @@ class DataGenerator(tf.keras.utils.Sequence):
             # Store sample
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
             # just get most recent one - very simple
-            patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = self._get_features(patient_metadata, recording_metadata, recording_data)
+            patient_features, available_signal_data = self._get_features(patient_metadata, recording_metadata, recording_data, self.threshold)
             patient_features = np.reshape(patient_features, (1, -1))
             if self.imputer is not None:
                 patient_features = self.imputer.transform(patient_features)
             else:
                 print('Warning there are nan values in the above, if this is not intended please put an imputer for nan values')
             
-            delta_psd_data = self._arr_transformations_model(delta_psd_data)
-            theta_psd_data = self._arr_transformations_model(theta_psd_data)
-            alpha_psd_data = self._arr_transformations_model(alpha_psd_data)
-            beta_psd_data = self._arr_transformations_model(beta_psd_data)
+            # delta_psd_data = self._arr_transformations_model(delta_psd_data)
+            # theta_psd_data = self._arr_transformations_model(theta_psd_data)
+            # alpha_psd_data = self._arr_transformations_model(alpha_psd_data)
+            # beta_psd_data = self._arr_transformations_model(beta_psd_data)
 
-            concatenated_psd_features = np.concatenate((delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data), axis=-1)
+            # concatenated_psd_features = np.concatenate((delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data), axis=-1)
 
-            list_psd_features.append(concatenated_psd_features)
+            # list_psd_features.append(concatenated_psd_features)
             list_patient_features.append(patient_features)
+            x_data.append(available_signal_data)
+            len_x_datas.append(np.shape(available_signal_data)[0])
             # print("available_signal_data: ", np.shape(available_signal_data))
             # list_delta_psd_data.append(delta_psd_data)
             # list_theta_psd_data.append(theta_psd_data)
@@ -144,28 +148,33 @@ class DataGenerator(tf.keras.utils.Sequence):
             # len_x_datas.append(np.shape(available_signal_data)[0])
             # x_data[i,] = available_signal_data
         
-        list_psd_features = np.array(list_psd_features, dtype=object)
+        # list_psd_features = np.array(list_psd_features, dtype=object)
         list_patient_features = np.array(list_patient_features, dtype=object)
         # list_delta_psd_data = np.array(list_delta_psd_data, dtype=object)
         # list_theta_psd_data = np.array(list_theta_psd_data, dtype=object)
         # list_alpha_psd_data = np.array(list_alpha_psd_data, dtype=object)
         # list_beta_psd_data = np.array(list_beta_psd_data, dtype=object)
 
-        list_psd_features = np.vstack(list_psd_features)
+        # list_psd_features = np.vstack(list_psd_features)
         list_patient_features = np.vstack(list_patient_features)
         # list_delta_psd_data = np.vstack(list_delta_psd_data)
         # list_theta_psd_data = np.vstack(list_theta_psd_data)
         # list_alpha_psd_data = np.vstack(list_alpha_psd_data)
         # list_beta_psd_data = np.vstack(list_beta_psd_data)
 
-        list_psd_features = np.asarray(list_psd_features).astype(np.float32)
+        # list_psd_features = np.asarray(list_psd_features).astype(np.float32)
         list_patient_features = np.asarray(list_patient_features).astype(np.float32)
         # list_delta_psd_data = np.asarray(list_delta_psd_data).astype(np.float32)
         # list_theta_psd_data = np.asarray(list_theta_psd_data).astype(np.float32)
         # list_alpha_psd_data = np.asarray(list_alpha_psd_data).astype(np.float32)
         # list_beta_psd_data = np.asarray(list_beta_psd_data).astype(np.float32)
+        x_data = np.array(x_data)
+        x_data = np.vstack(x_data)
+        # if eeg net we have to transpose (swap index 1 and 2)
+        x_data = np.transpose(x_data, (0, 2, 1))
+        assert not np.any(np.isnan(x_data))
   
-        return list_psd_features, list_patient_features
+        return x_data, len_x_datas
     
     def _arr_transformations_model(self, data_arr):
         """Convert from (X, Y, Z) into (X, Y * Z) into (72, Y * Z) into (1, 72, Y * Z) given X <= 72 to feed to the model
@@ -185,7 +194,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         padded_arr = np.pad(data_arr, ((0, rows_to_pad), (0, 0)), mode='constant')
         return padded_arr
     
-    def _generate_y_data(self, patient_ids_batch):
+    def _generate_y_data(self, patient_ids_batch, len_x_datas):
         """Generate y data of batch_size data
 
         Args:
@@ -203,6 +212,7 @@ class DataGenerator(tf.keras.utils.Sequence):
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
 
             outcome_data = hp.get_outcome(patient_metadata)
+            outcome_data = self._duplicate_y_data(len_x_datas[i], outcome_data)
             y_data.append(outcome_data)
 
         y_data = np.array(y_data)
@@ -226,7 +236,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         patient_y_datas = np.reshape(patient_y_datas, (-1, 1))
         return patient_y_datas
     
-    def _get_features(self, patient_metadata, recording_metadata, recording_data):
+    def _get_features(self, patient_metadata, recording_metadata, recording_data, threshold):
         """Get the Timestamps Data.
         Args:
             patient_metadata (list): Data of Patient
@@ -286,36 +296,37 @@ class DataGenerator(tf.keras.utils.Sequence):
         beta_psd_data  = list()
         # num recordings is always 72
         for i in range(num_recordings):
-            signal_data, sampling_frequency, signal_channels = recording_data[i]
-            if signal_data is not None:
-                signal_data = hp.reorder_recording_channels(signal_data, signal_channels, channels) # Reorder the channels in the signal data, as needed, for consistency across different recordings.
-            
-                delta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=0.5,  fmax=8.0, verbose=False)
-                theta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=4.0,  fmax=8.0, verbose=False)
-                alpha_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=8.0, fmax=12.0, verbose=False)
-                beta_psd,  _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency, fmin=12.0, fmax=30.0, verbose=False)
-                # print(delta_psd)
-                # print(theta_psd)
-                # print(alpha_psd)
-                # print(beta_psd)
-                quality_score = list()
-                quality_score.append(quality_scores[i])
-
-                if add_quality == True: # num_channels (+1)
-                    signal_data = np.append(signal_data, [quality_score * signal_data.shape[1]], axis=0)
-                    delta_psd   = np.append(delta_psd, [quality_score * delta_psd.shape[1]], axis=0)
-                    theta_psd   = np.append(theta_psd, [quality_score * theta_psd.shape[1]], axis=0)
-                    alpha_psd   = np.append(alpha_psd, [quality_score * alpha_psd.shape[1]], axis=0)
-                    beta_psd    = np.append(beta_psd, [quality_score * beta_psd.shape[1]], axis=0)                
-
-                # DEBUG
-                # print("shapes:", signal_data.shape, delta_psd.shape, theta_psd.shape, alpha_psd.shape, beta_psd.shape)
+            if i >= (threshold - 1):
+                signal_data, sampling_frequency, signal_channels = recording_data[i]
+                if signal_data is not None:
+                    signal_data = hp.reorder_recording_channels(signal_data, signal_channels, channels) # Reorder the channels in the signal data, as needed, for consistency across different recordings.
                 
-                available_signal_data.append(signal_data)
-                delta_psd_data.append(delta_psd)
-                theta_psd_data.append(theta_psd)
-                alpha_psd_data.append(alpha_psd)
-                beta_psd_data.append(beta_psd)
+                    delta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=0.5,  fmax=8.0, verbose=False)
+                    theta_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=4.0,  fmax=8.0, verbose=False)
+                    alpha_psd, _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency,  fmin=8.0, fmax=12.0, verbose=False)
+                    beta_psd,  _ = mne.time_frequency.psd_array_welch(signal_data, sfreq=sampling_frequency, fmin=12.0, fmax=30.0, verbose=False)
+                    # print(delta_psd)
+                    # print(theta_psd)
+                    # print(alpha_psd)
+                    # print(beta_psd)
+                    quality_score = list()
+                    quality_score.append(quality_scores[i])
+
+                    if add_quality == True: # num_channels (+1)
+                        signal_data = np.append(signal_data, [quality_score * signal_data.shape[1]], axis=0)
+                        delta_psd   = np.append(delta_psd, [quality_score * delta_psd.shape[1]], axis=0)
+                        theta_psd   = np.append(theta_psd, [quality_score * theta_psd.shape[1]], axis=0)
+                        alpha_psd   = np.append(alpha_psd, [quality_score * alpha_psd.shape[1]], axis=0)
+                        beta_psd    = np.append(beta_psd, [quality_score * beta_psd.shape[1]], axis=0)                
+
+                    # DEBUG
+                    # print("shapes:", signal_data.shape, delta_psd.shape, theta_psd.shape, alpha_psd.shape, beta_psd.shape)
+                    
+                    available_signal_data.append(signal_data)
+                    delta_psd_data.append(delta_psd)
+                    theta_psd_data.append(theta_psd)
+                    alpha_psd_data.append(alpha_psd)
+                    beta_psd_data.append(beta_psd)
 
         if len(available_signal_data) > 0:
 
@@ -347,7 +358,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         
         
         
-        return patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data
+        return patient_features, available_signal_data
         # return available_signal_data
 
 
