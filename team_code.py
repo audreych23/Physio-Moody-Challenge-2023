@@ -12,7 +12,7 @@
 from helper_code import *
 import numpy as np, os, sys
 import tensorflow as tf
-import train_and_evaluate_model
+import model_training.train_and_evaluate_model as train_and_evaluate_model
 # for reproducability
 seed = 1
 np.random.seed(seed)
@@ -76,7 +76,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
 # Load your trained models. This function is *required*. You should edit this function to add your code, but do *not* change the
 # arguments of this function.
 def load_challenge_models(model_folder, verbose):
-    from load_model import load_model, load_imputer
+    from model_utilities.load_model import load_model, load_imputer
     outcome_model = load_model(model_folder)
     imputer = load_imputer(model_folder)
 
@@ -86,7 +86,7 @@ def load_challenge_models(model_folder, verbose):
 # arguments of this function.
 def run_challenge_models(models, data_folder, patient_id, verbose):
     # batch size has to be 1 because only one data per run
-    from run_challenge_model import run_challenge_model_with_imputer
+    from model_utilities.run_challenge_model import run_challenge_model_with_imputer
     outcome_pred, outcome_probability, cpc = run_challenge_model_with_imputer(models, data_folder, patient_id)
 
     return outcome_pred, outcome_probability, cpc

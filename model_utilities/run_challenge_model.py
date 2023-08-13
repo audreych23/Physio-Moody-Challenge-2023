@@ -1,5 +1,5 @@
 import tensorflow as tf
-import data_generator as dg
+import data_loading.data_generator as dg
 import numpy as np
 
 def run_challenge_model_no_imputer(models, data_folder, patient_id):

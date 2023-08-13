@@ -4,12 +4,12 @@ import numpy as np, os, sys
 import mne
 from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-import data_generator as dg
-from models import *
-import graphing as plotter
-from custom_train import *
-from save_model import *
-from preload_clinical_data import *
+import data_loading.data_generator as dg
+from models.models import *
+import preview_utilities.graphing as plotter
+from model_training.custom_train import *
+from model_utilities.save_model import *
+from data_preprocessing.preload_clinical_data import *
 
 # call this if you want to check for cross validation
 def k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, patient_ids, 

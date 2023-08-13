@@ -4,7 +4,7 @@ import mne
 from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import tensorflow as tf
-import data_generator as dg
+import data_loading.data_generator as dg
 import time 
 
 # This file is anything related to training
