@@ -67,7 +67,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # First is for evaluation how good the model is
     if use_k_fold_cross_validation:
         train_and_evaluate_model.k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, 
-                                                   patient_ids, timesteps, features, num_classes, batch_size, epochs, k = 5)
+                                                   patient_ids, timesteps, features, num_classes, batch_size, epochs, k = 3)
     else:
         train_and_evaluate_model.train_and_evaluate_model(data_folder, model_folder, graph_folder, verbose, 
                                                    patient_ids, timesteps, features, num_classes, batch_size, epochs, validation, data_split_validation)

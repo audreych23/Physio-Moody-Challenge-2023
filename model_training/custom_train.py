@@ -63,7 +63,7 @@ def custom_fit(model, num_epochs, training_data_gen, validation_data_gen=None):
     val_accuracy_metric = tf.keras.metrics.SparseCategoricalAccuracy()
 
     # Progress bar parameters
-    metrics_names = ['acc','loss', 'val_acc', 'val_loss']
+    metrics_names = ['acc', 'loss', 'val_acc', 'val_loss']
 
     # Results (plotting)
     train_loss_results = []
