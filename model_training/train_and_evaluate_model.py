@@ -43,8 +43,7 @@ def k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, pa
         print('Preload clinical data to train imputer...')
         # preload all clinical data to get the imputer (not sure if we can do streaming on it)
         preloaded_patient_features = preload_clinical_data(patient_ids_train, data_folder)
-        clinical_data_imputer = impute_clinical_data(missing_values = np.nan, strategy = 'mean')
-        clinical_data_imputer.fit(preloaded_patient_features)
+        clinical_data_imputer = create_clinical_data_imputer(missing_values=np.nan, strategy='mean', x_data=preloaded_patient_features)
 
         # Extract the features and labels.
         if verbose >= 1:
@@ -72,7 +71,7 @@ def k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, pa
         plotter.plot_accuracy_curve_dict(history_outcome, graph_folder, f'accuracy_curve_{idx}.png')
 
         # Save model
-        save_challenge_model_lstm(model_folder, model_outcome, f"model_outcome_{idx}")
+        save_challenge_model_lstm(model_folder, model_outcome, clinical_data_imputer, f"model_outcome_{idx}")
         if verbose >= 1:
             print('Done.')
             
@@ -95,8 +94,7 @@ def train_and_evaluate_model(data_folder, model_folder, graph_folder, verbose, p
             # Train whole data if no validaiton
             # preload all clinical data to get the imputer (not sure if we can do streaming on it)
             preloaded_patient_features = preload_clinical_data(patient_ids, data_folder)
-            clinical_data_imputer = impute_clinical_data(missing_values = np.nan, strategy = 'mean')
-            clinical_data_imputer.fit(preloaded_patient_features)
+            clinical_data_imputer = create_clinical_data_imputer(missing_values=np.nan, strategy='mean', x_data=preloaded_patient_features)
 
             training_generator = dg.DataGenerator(patient_ids, data_folder, batch_size=batch_size, imputer=clinical_data_imputer)
 
@@ -111,8 +109,7 @@ def train_and_evaluate_model(data_folder, model_folder, graph_folder, verbose, p
 
             # preload all clinical data to get the imputer (not sure if we can do streaming on it)
             preloaded_patient_features = preload_clinical_data(patient_ids_train, data_folder)
-            clinical_data_imputer = impute_clinical_data(missing_values = np.nan, strategy = 'mean')
-            clinical_data_imputer.fit(preloaded_patient_features)
+            clinical_data_imputer = create_clinical_data_imputer(missing_values=np.nan, strategy='mean', x_data=preloaded_patient_features)
 
             training_generator = dg.DataGenerator(patient_ids_train, data_folder, batch_size=batch_size, imputer=clinical_data_imputer)
             validation_generator = dg.DataGenerator(patient_ids_val, data_folder, batch_size=batch_size, imputer=clinical_data_imputer)
@@ -135,6 +132,6 @@ def train_and_evaluate_model(data_folder, model_folder, graph_folder, verbose, p
         plotter.plot_accuracy_curve_dict(history_outcome, graph_folder)
 
         # Save model
-        save_challenge_model_lstm(model_folder, model_outcome, "model_outcome")
+        save_challenge_model_lstm(model_folder, model_outcome, clinical_data_imputer, "model_outcome")
         if verbose >= 1:
             print('Done.')
