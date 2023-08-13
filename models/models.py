@@ -60,7 +60,7 @@ def model_lstm_clinical_data(timesteps, features_shape, num_classes):
     clinical_inputs = tf.keras.layers.Input(
         shape=(features_shape[1])
     )
-    clinical_l2 = tf.keras.layers.Dense(128, activation='relu')(clinical_inputs)
+    clinical_l2 = tf.keras.layers.Dense(2, activation='relu')(clinical_inputs)
 
     # Merge all the models
     concatenated_layers = tf.keras.layers.concatenate([timeseries_l3, clinical_l2])
