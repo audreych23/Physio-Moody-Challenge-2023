@@ -11,17 +11,7 @@
 
 from helper_code import *
 import numpy as np, os, sys
-import mne
-from sklearn.impute import SimpleImputer
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 import tensorflow as tf
-from scipy import stats as st
-from sklearn.model_selection import KFold
-import data_generator as dg
-import graphing as plotter
-from custom_train import *
-from models import *
-from save_model import * 
 import train_and_evaluate_model
 # for reproducability
 seed = 1
@@ -86,59 +76,18 @@ def train_challenge_model(data_folder, model_folder, verbose):
 # Load your trained models. This function is *required*. You should edit this function to add your code, but do *not* change the
 # arguments of this function.
 def load_challenge_models(model_folder, verbose):
-    # filename = os.path.join(model_folder, 'models.sav')
-    foldername_outcome = os.path.join(model_folder, 'model_outcome')
-    # foldername_cpc = os.path.join(model_folder, 'model_cpc')
-    
-    # cpc_model = tf.keras.models.load_model(foldername_cpc)
-    # cpc_model.summary()
-    outcome_model = tf.keras.models.load_model(foldername_outcome)
-    outcome_model.summary()
-    # return joblib.load(filename), lstm_outcome, lstm_cpc 
-    # return lstm_outcome, lstm_cpc, joblib.load(filename)
-    return outcome_model
+    from load_model import load_model, load_imputer
+    outcome_model = load_model(model_folder)
+    imputer = load_imputer(model_folder)
+
+    return outcome_model, imputer
 
 # Run your trained models. This function is *required*. You should edit this function to add your code, but do *not* change the
 # arguments of this function.
 def run_challenge_models(models, data_folder, patient_id, verbose):
-    # lstm_model_outcome = models[0]
-    # lstm_model_cpc = models[1]
-    # random_tree_model = models[2]
-    # imputer = random_tree_model['imputer']
-    # outcome_model = random_tree_model['outcome_model']
-    # cpc_model = random_tree_model['cpc_model']
-    outcome_model = models
-
-    softmax_layer = tf.keras.layers.Softmax()(outcome_model.output)
-    probability_model = tf.keras.models.Model(inputs=outcome_model.input, outputs=softmax_layer)
-    probability_model.summary()
-    
     # batch size has to be 1 because only one data per run
-    patient_ids = list()
-    patient_ids.append(patient_id)
-    # Load data.
-    test_data_generator = dg.DataGenerator(patient_ids, data_folder, batch_size=1, to_fit=False, shuffle=False)
-        
-    outcome_pred = probability_model.predict_generator(test_data_generator)
-
-    print("patient id: ", patient_id)
-    print("outcome softmax: ", outcome_pred)
-    print(np.shape(outcome_pred))
-
-    outcome_probability = outcome_pred[0][1]
-    print("outcome_proba: ", outcome_probability)
-    outcome_pred = np.argmax(outcome_pred, axis=1).astype(np.int64)
-    print("outcome predict: ", outcome_pred)
-    if (outcome_pred[0] < 1):
-        # good
-        cpc = 1
-    else:
-        # poor
-        cpc = 5
-    print("cpc:", cpc)
-
-    # Ensure that the CPC score is between (or equal to) 1 and 5.
-    cpc = np.clip(cpc, 1, 5)
+    from run_challenge_model import run_challenge_model_with_imputer
+    outcome_pred, outcome_probability, cpc = run_challenge_model_with_imputer(models, data_folder, patient_id)
 
     return outcome_pred, outcome_probability, cpc
 
