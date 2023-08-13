@@ -62,7 +62,7 @@ def k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, pa
             print('Training the Challenge models on the Challenge data...')
 
         # output of a custom fit is dictionary (for now)
-        history_outcome = custom_fit(model_outcome, epochs, training_generator, validation_generator)
+        history_outcome = custom_fit(graph_folder, model_outcome, epochs, training_generator, validation_generator)
 
         # Plot graph
         plotter.plot_loss_curve_dict(history_outcome, graph_folder, f'loss_curve_{idx}.png')
@@ -121,9 +121,9 @@ def train_and_evaluate_model(data_folder, model_folder, graph_folder, verbose, p
 
         # output of a custom fit is dictionary (for now)
         if validation:
-            history_outcome = custom_fit(model_outcome, epochs, training_generator, validation_generator)
+            history_outcome = custom_fit(graph_folder, model_outcome, epochs, training_generator, validation_generator)
         else:
-            history_outcome = custom_fit(model_outcome, epochs, training_generator)
+            history_outcome = custom_fit(graph_folder, model_outcome, epochs, training_generator)
 
         # Plot graph
         plotter.plot_loss_curve_dict(history_outcome, graph_folder)
