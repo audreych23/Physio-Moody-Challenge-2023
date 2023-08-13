@@ -58,7 +58,6 @@ def train_challenge_model(data_folder, model_folder, verbose):
         print('Finding the Challenge data...')
 
     patient_ids = find_data_folders(data_folder)
-    print(patient_ids)
     
     total_num_patients_train = len(patient_ids)
 

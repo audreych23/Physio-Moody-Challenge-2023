@@ -37,8 +37,6 @@ def k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, pa
 
         patient_ids_train = patient_ids[: idx * num_patients_validation] + patient_ids[(idx + 1) * num_patients_validation: ]
 
-        print(patient_ids_train, patient_ids_val)
-        print(len(patient_ids_train), len(patient_ids_val))
 
         print('Preload clinical data to train imputer...')
         # preload all clinical data to get the imputer (not sure if we can do streaming on it)

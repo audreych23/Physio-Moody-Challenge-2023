@@ -125,14 +125,12 @@ class DataGenerator(tf.keras.utils.Sequence):
             else:
                 print('Warning there are nan values in the above, if this is not intended please put an imputer for nan values')
             
-            print('patient_features shape', np.shape(patient_features))
             delta_psd_data = self._arr_transformations_model(delta_psd_data)
             theta_psd_data = self._arr_transformations_model(theta_psd_data)
             alpha_psd_data = self._arr_transformations_model(alpha_psd_data)
             beta_psd_data = self._arr_transformations_model(beta_psd_data)
 
             concatenated_psd_features = np.concatenate((delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data), axis=-1)
-            print('psd features', np.shape(concatenated_psd_features))
 
             list_psd_features.append(concatenated_psd_features)
             list_patient_features.append(patient_features)
@@ -166,8 +164,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         # list_theta_psd_data = np.asarray(list_theta_psd_data).astype(np.float32)
         # list_alpha_psd_data = np.asarray(list_alpha_psd_data).astype(np.float32)
         # list_beta_psd_data = np.asarray(list_beta_psd_data).astype(np.float32)
-        print(np.shape(list_psd_features))
-        print(np.shape(list_patient_features))
   
         return list_psd_features, list_patient_features
     
