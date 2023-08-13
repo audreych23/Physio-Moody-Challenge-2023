@@ -45,7 +45,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # time smaple x channel
     # hardcoding (but this is for delta psd iirc)
     timesteps = 72
-    features = (342, 180, 180, 828)
+    features = (1530, 8)
     # dimension = (72, 342)
     num_classes = 2
     

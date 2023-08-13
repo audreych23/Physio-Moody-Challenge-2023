@@ -5,6 +5,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from sklearn import metrics
+import tensorflow as tf
+
+def plot_model(model, graph_folder, graph_name):
+    model_img_filename = os.path.join(graph_folder, graph_name)
+    tf.keras.utils.plot_model(model, to_file=model_img_filename, show_shapes=True)
+    return
 
 def plot_confusion_matrix_challenge(tp, tn, fp, fn, threshold, graph_folder, graph_name='confusion_matrix_challenge.png'):
     plt.figure()

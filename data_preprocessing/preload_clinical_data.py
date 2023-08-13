@@ -7,12 +7,13 @@ def preload_clinical_data(patient_ids, data_folder):
     for patient_id in patient_ids:
         patient_metadata, _, _ = hp.load_challenge_data(data_folder, patient_id)
         patient_features = get_clinical_features(patient_metadata)
+        patient_features = np.reshape(patient_features, (1, -1))
         list_patient_features.append(patient_features)
     
     list_patient_features = np.array(list_patient_features)
     list_patient_features = np.vstack(list_patient_features)
 
-    print(np.shape(list_patient_features))
+    # print(np.shape(list_patient_features))
     return list_patient_features
 
 def get_clinical_features(patient_metadata):
@@ -41,3 +42,4 @@ def get_clinical_features(patient_metadata):
 
     # Combine the patient features.
     patient_features = np.array([age, female, male, other, rosc, ohca, vfib, ttm])
+    return patient_features

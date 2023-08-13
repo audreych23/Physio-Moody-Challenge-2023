@@ -3,6 +3,7 @@ import tensorflow as tf
 def model_lstm(timesteps, features_shape, num_classes):
     # delta model
     # timesteps x features
+    assert features_shape == (342, 180, 180, 828)
     delta_inputs = tf.keras.layers.Input(
         shape=(timesteps, features_shape[0])
     )
@@ -44,6 +45,33 @@ def model_lstm(timesteps, features_shape, num_classes):
     merged_model.summary()
     return merged_model
 
+def model_lstm_clinical_data(timesteps, features_shape, num_classes):
+    # delta model
+    # timesteps x features
+    assert features_shape == (1530, 8)
+    timeseries_inputs = tf.keras.layers.Input(
+        shape=(timesteps, features_shape[0])
+    )
+    timeseries_l1 = tf.keras.layers.Masking(mask_value=0.)(timeseries_inputs)
+    timeseries_l2 = tf.keras.layers.LSTM(32)(timeseries_l1)
+    timeseries_l3 = tf.keras.layers.Dense(8, activation='relu')(timeseries_l2)
+
+    # theta model
+    clinical_inputs = tf.keras.layers.Input(
+        shape=(features_shape[1])
+    )
+    clinical_l2 = tf.keras.layers.Dense(2, activation='relu')(clinical_inputs)
+
+    # Merge all the models
+    concatenated_layers = tf.keras.layers.concatenate([timeseries_l3, clinical_l2])
+
+    concatenated_l4 = tf.keras.layers.Dense(4, activation='relu')(concatenated_layers)
+    output_layer = tf.keras.layers.Dense(num_classes)(concatenated_l4)
+
+    merged_model = tf.keras.models.Model(inputs=[(timeseries_inputs, clinical_inputs)], outputs=[output_layer])
+
+    merged_model.summary()
+    return merged_model
 
 def model_eeg(
     input_channels:int,

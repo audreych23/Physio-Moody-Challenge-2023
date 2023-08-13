@@ -1,6 +1,7 @@
 import os 
 import tensorflow as tf
 import joblib
+import preview_utilities.graphing as plotter
 
 def load_model(model_folder):
     foldername_outcome = os.path.join(model_folder, 'model_outcome')
@@ -13,10 +14,8 @@ def load_model(model_folder):
 
     graph_folder = os.path.join(model_folder, "graph")
     os.makedirs(graph_folder, exist_ok=True)
-    model_img_filename = os.path.join(graph_folder, 'model_architecture.png')
 
-    tf.keras.utils.plot_model(outcome_model, to_file=model_img_filename, show_shapes=True)
-    
+    plotter.plot_model(outcome_model, graph_folder, 'model_architecture.png')
     return outcome_model
 
 def load_imputer(model_folder):
