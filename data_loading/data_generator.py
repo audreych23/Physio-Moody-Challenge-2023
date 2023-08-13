@@ -64,13 +64,13 @@ class DataGenerator(tf.keras.utils.Sequence):
         # has a list of id ['0286', '0284', '0297', ...]
         # Generate data
         # dim of x data depends on batch size and available hours per patient
-        delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = self._generate_x_data(patient_ids_batch)
-        
+        # delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = self._generate_x_data(patient_ids_batch)
+        psd_features, patient_features = self._generate_x_data(patient_ids_batch)
 
         print("X data has finished generating...")
         # Sanity check if first dimension is batch size
-        assert np.shape(delta_psd_data)[0] == len(patient_ids_batch) and np.shape(theta_psd_data)[0] == len(patient_ids_batch) \
-                and np.shape(alpha_psd_data)[0] == len(patient_ids_batch) and np.shape(beta_psd_data)[0] == len(patient_ids_batch)
+        # assert np.shape(delta_psd_data)[0] == len(patient_ids_batch) and np.shape(theta_psd_data)[0] == len(patient_ids_batch) \
+        #         and np.shape(alpha_psd_data)[0] == len(patient_ids_batch) and np.shape(beta_psd_data)[0] == len(patient_ids_batch)
         
         if self.to_fit:
             y_data = self._generate_y_data(patient_ids_batch)
@@ -78,9 +78,9 @@ class DataGenerator(tf.keras.utils.Sequence):
             # print("shape of x and y data", np.shape(x_data), np.shape(y_data))
             assert np.shape(y_data)[0] == len(patient_ids_batch)
 
-            return (delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data), y_data
+            return (psd_features, patient_features), y_data
         else:
-            return (delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data), 
+            return (psd_features, patient_features), 
         
     def on_epoch_end(self):
         """Shuffle the indexes after each end of epoch
@@ -119,8 +119,9 @@ class DataGenerator(tf.keras.utils.Sequence):
             patient_metadata, recording_metadata, recording_data = hp.load_challenge_data(self.data_path, patient_id)
             # just get most recent one - very simple
             patient_features, available_signal_data, delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = self._get_features(patient_metadata, recording_metadata, recording_data)
+            patient_features = np.reshape(patient_features, (1, -1))
             if self.imputer is not None:
-                self.imputer.transform(patient_features)
+                patient_features = self.imputer.transform(patient_features)
             else:
                 print('Warning there are nan values in the above, if this is not intended please put an imputer for nan values')
             
