@@ -38,7 +38,7 @@ def run_challenge_model_no_imputer(models, data_folder, patient_id):
 def run_challenge_model_with_imputer(models, data_folder, patient_id):
     outcome_model = models[0]
     # cpc_model = models[1]
-    imputer_model = models[2]
+    imputer_model = models[1]
     imputer = imputer_model['imputer']
     # outcome_model = random_tree_model['outcome_model']
     # cpc_model = random_tree_model['cpc_model']

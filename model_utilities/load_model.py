@@ -20,4 +20,4 @@ def load_model(model_folder):
 
 def load_imputer(model_folder):
     imputer_filename = os.path.join(model_folder, 'model_outcome', 'models.sav')
-    return joblib.load(imputer_filename), 
+    return joblib.load(imputer_filename)
