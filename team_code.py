@@ -31,9 +31,9 @@ tf.random.set_seed(seed)
 # Train your model.
 def train_challenge_model(data_folder, model_folder, verbose):
     # Disable This if validation is not used
-    validation = True
+    validation = False
     # Disable if k_fold is not used
-    use_k_fold_cross_validation = True
+    use_k_fold_cross_validation = False
     # Create a folder for the model if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
     # Create a folder for the graph if it does not already exist.
@@ -45,12 +45,12 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # time smaple x channel
     # hardcoding (but this is for delta psd iirc)
     timesteps = 72
-    features = (1530, 8)
+    features = (342, 180, 180, 828, 8)
     # dimension = (72, 342)
     num_classes = 2
     
     # Training parameters
-    batch_size = 32
+    batch_size = 16
     epochs = 5
     threshold = 48
     # Find data files.
