@@ -111,29 +111,31 @@ def custom_fit(model, num_epochs, training_data_gen, validation_data_gen=None):
         # Reset training metrics at the end of each epoch
         train_accuracy_metric.reset_states()
         train_loss_avg.reset_state()
-
-        # Run a validation loop at the end of each epoch.
-        for x_batch_val, y_batch_val in validation_data_gen:
-            loss_value = loss(model, loss_fn, x_batch_val, y_batch_val, training=False)
-            # Update val metrics
-            val_accuracy_metric.update_state(y_batch_val, model(x_batch_val, training=False))
-            val_loss_avg.update_state(loss_value)
-
-        val_accuracy_results.append(val_accuracy_metric.result())
-        val_loss_results.append(val_loss_avg.result())
-        val_accuracy_metric.reset_states()
-        val_loss_avg.reset_states()
-
-        prog_bar_values=[('acc', np.array(train_accuracy_results[-1])), ('loss', np.array(train_loss_results[-1])), 
-                         ('val_acc', np.array(val_accuracy_results[-1])), ('val_loss', np.array(val_loss_results[-1]))]
         
-        prog_bar_epoch.add(0, values=prog_bar_values)
+        if validation_data_gen is not None:
+            # Run a validation loop at the end of each epoch.
+            for x_batch_val, y_batch_val in validation_data_gen:
+                loss_value = loss(model, loss_fn, x_batch_val, y_batch_val, training=False)
+                # Update val metrics
+                val_accuracy_metric.update_state(y_batch_val, model(x_batch_val, training=False))
+                val_loss_avg.update_state(loss_value)
+
+            val_accuracy_results.append(val_accuracy_metric.result())
+            val_loss_results.append(val_loss_avg.result())
+            val_accuracy_metric.reset_states()
+            val_loss_avg.reset_states()
+
+            prog_bar_values=[('acc', np.array(train_accuracy_results[-1])), ('loss', np.array(train_loss_results[-1])), 
+                            ('val_acc', np.array(val_accuracy_results[-1])), ('val_loss', np.array(val_loss_results[-1]))]
+            
+            prog_bar_epoch.add(0, values=prog_bar_values)
 
     # Some simple trade off dumb stuff you can do ;D
     history['accuracy'] = train_accuracy_results
     history['loss'] = train_loss_results
-    history['val_accuracy'] = val_accuracy_results
-    history['val_loss'] = val_loss_results
+    if validation_data_gen is not None:
+        history['val_accuracy'] = val_accuracy_results
+        history['val_loss'] = val_loss_results
 
     return history
     # history['val_accuracy'] = None

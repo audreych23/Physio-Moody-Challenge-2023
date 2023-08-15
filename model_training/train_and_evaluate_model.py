@@ -76,9 +76,6 @@ def k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, pa
 
 def train_and_evaluate_model(data_folder, model_folder, graph_folder, verbose, patient_ids, 
                             timesteps, features_dim, num_classes, batch_size, epochs, validation, data_split_validation):
-        
-        print('# of training data:', len(patient_ids_train))
-        print('# of validation data:', len(patient_ids_val))
 
         # Extract the features and labels.
         if verbose >= 1:
@@ -113,7 +110,7 @@ def train_and_evaluate_model(data_folder, model_folder, graph_folder, verbose, p
             validation_generator = dg.DataGenerator(patient_ids_val, data_folder, batch_size=batch_size, imputer=clinical_data_imputer)
 
         # Create Model
-        model_outcome = model_lstm_clinical_data(timesteps, features_dim, num_classes)
+        model_outcome = model_lstm_clinical_data_separate(timesteps, features_dim, num_classes)
 
         # Train Model
         if verbose >= 1:
