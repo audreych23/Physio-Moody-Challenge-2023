@@ -35,7 +35,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # Disable This if validation is not used
     validation = False
     # Disable if k_fold is not used
-    use_k_fold_cross_validation = False
+    use_k_fold_cross_validation = True
     # Create a folder for the model if it does not already exist.
     os.makedirs(model_folder, exist_ok=True)
     # Create a folder for the graph if it does not already exist.
@@ -62,7 +62,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
     patient_ids = find_data_folders(data_folder)
     
     # shuffle the patient ids
-    patient_ids = random.shuffle(patient_ids)
+    random.shuffle(patient_ids)
     
     total_num_patients_train = len(patient_ids)
 
