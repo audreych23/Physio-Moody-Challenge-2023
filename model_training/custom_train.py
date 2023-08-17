@@ -62,7 +62,6 @@ def custom_fit(graph_folder, model, num_epochs, training_data_gen, validation_da
     # Metrics parameter
     train_accuracy_metric = tf.keras.metrics.SparseCategoricalAccuracy()
     val_accuracy_metric = tf.keras.metrics.SparseCategoricalAccuracy()
-    f1_accuracy_metric = tf.keras.metrics.F1Score()
     # Progress bar parameters
     metrics_names = ['acc','loss', 'val_acc', 'val_loss', 'f1_acc', 'challenge_score', 'AUROC', 'AUPRC']
 
@@ -137,7 +136,6 @@ def custom_fit(graph_folder, model, num_epochs, training_data_gen, validation_da
 
                 val_accuracy_metric.update_state(y_batch_val, model(x_batch_val, training=False))
                 val_loss_avg.update_state(loss_value)
-                f1_accuracy_metric.update_state(y_batch_val, y_batch_outcome_pred)
                 print(y_batch_outcome_pred_prob)
                 y_batch_outcome_pred = np.argmax(y_batch_outcome_pred_prob, axis=1).astype(np.int64)
                 y_batch_outcome_pred_prob = np.array(y_batch_outcome_pred_prob[:, 1])
@@ -147,34 +145,26 @@ def custom_fit(graph_folder, model, num_epochs, training_data_gen, validation_da
                     list_probability_outcome.append(round(y_batch_outcome_pred_prob[i], 3))
                     list_pred_outcome.append(y_batch_outcome_pred[i])
                     list_true_outcome.append(y[0])
-                    print(y)
-                    print(y_batch_outcome_pred_prob[i])
-                    print(y_batch_outcome_pred[i])
 
             
             list_probability_outcome = np.array(list_probability_outcome)
             list_pred_outcome = np.array(list_pred_outcome)
             list_true_outcome = np.array(list_true_outcome)
 
-            print(list_true_outcome)
-            print(list_probability_outcome)
-            
+            f_measure_outcomes, _, _ = compute_f_measure(list_true_outcome, list_pred_outcome)
             challenge_score = compute_challenge_score(list_true_outcome, list_probability_outcome)
             auroc_outcomes, auprc_outcomes = compute_auc(list_true_outcome, list_probability_outcome)
 
             val_accuracy_results.append(val_accuracy_metric.result())
             val_loss_results.append(val_loss_avg.result())
-            f1_score_results.append(f1_accuracy_metric.result())
+            f1_score_results.append(f_measure_outcomes)
             challenge_score_results.append(challenge_score)
             auroc_results.append(auroc_outcomes)
             auprc_results.append(auprc_outcomes)
-            print(challenge_score)
-            print(auroc_outcomes)
-            print(auprc_outcomes)
 
             val_accuracy_metric.reset_states()
             val_loss_avg.reset_states()
-            f1_accuracy_metric.reset_states()
+
 
             prog_bar_values=[('acc', np.array(train_accuracy_results[-1])), ('loss', np.array(train_loss_results[-1])), 
                             ('val_acc', np.array(val_accuracy_results[-1])), ('val_loss', np.array(val_loss_results[-1])),
@@ -191,16 +181,10 @@ def custom_fit(graph_folder, model, num_epochs, training_data_gen, validation_da
     if validation_data_gen is not None:
         history['val_accuracy'] = val_accuracy_results
         history['val_loss'] = val_loss_results
-        # plot in last epoch
-        make_roc_graph(list_true_outcome, list_probability_outcome, graph_folder=graph_folder)
-        plot_confusion_matrix(list_true_outcome, list_pred_outcome, graph_folder=graph_folder)
-        plot_confusion_matrix_challenge_score(list_true_outcome, list_probability_outcome, graph_folder=graph_folder)
+        history['f1_score'] = f1_score_results
+        history['challenge_score'] = challenge_score_results
+        history['auroc'] = auroc_results
+        history['auprc'] = auprc_results
 
-    return history
-    # history['val_accuracy'] = None
-    # history['val_loss'] = None
-        # if epoch % 1 == 0:
-        #     print("Epoch {:03d}: Loss: {:.3f}, Accuracy: {:.3%}".format(epoch,
-        #                                                                 epoch_loss_avg.result(),
-        #                                                                 epoch_accuracy.result()))
-        
+
+    return history, list_probability_outcome, list_pred_outcome, list_true_outcome
