@@ -13,8 +13,10 @@ from helper_code import *
 import numpy as np, os, sys
 import tensorflow as tf
 import model_training.train_and_evaluate_model as train_and_evaluate_model
+import random
 # for reproducability
 seed = 1
+random.seed(seed)
 np.random.seed(seed)
 tf.random.set_seed(seed)
 
@@ -58,6 +60,9 @@ def train_challenge_model(data_folder, model_folder, verbose):
         print('Finding the Challenge data...')
 
     patient_ids = find_data_folders(data_folder)
+    
+    # shuffle the patient ids
+    patient_ids = random.shuffle(patient_ids)
     
     total_num_patients_train = len(patient_ids)
 

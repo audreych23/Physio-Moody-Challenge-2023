@@ -3,6 +3,7 @@ import numpy as np, os, sys
 import mne
 from sklearn.impute import SimpleImputer
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from model_training.evaluation_metrics import *
 import tensorflow as tf
 import data_loading.data_generator as dg
 import time 
@@ -53,7 +54,7 @@ def grad(model, loss_fn, inputs, targets):
     # the gradients of the trainable variables with respect to the loss.
     return loss_value, tape.gradient(loss_value, model.trainable_variables)
 
-def custom_fit(model, num_epochs, training_data_gen, validation_data_gen=None):
+def custom_fit(graph_folder, model, num_epochs, training_data_gen, validation_data_gen=None):
     # Compile parameters
     learning_rate = 0.0001 
     loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
@@ -61,15 +62,20 @@ def custom_fit(model, num_epochs, training_data_gen, validation_data_gen=None):
     # Metrics parameter
     train_accuracy_metric = tf.keras.metrics.SparseCategoricalAccuracy()
     val_accuracy_metric = tf.keras.metrics.SparseCategoricalAccuracy()
-
+    f1_accuracy_metric = tf.keras.metrics.F1Score()
     # Progress bar parameters
-    metrics_names = ['acc', 'loss', 'val_acc', 'val_loss']
+    metrics_names = ['acc','loss', 'val_acc', 'val_loss', 'f1_acc', 'challenge_score', 'AUROC', 'AUPRC']
 
     # Results (plotting)
     train_loss_results = []
     train_accuracy_results = []
+
     val_loss_results = []
     val_accuracy_results = []
+    f1_score_results = []
+    challenge_score_results = []
+    auroc_results = []
+    auprc_results = []
 
     # Dummy dictinary that is similar to callbacks
     history = dict()
@@ -112,23 +118,75 @@ def custom_fit(model, num_epochs, training_data_gen, validation_data_gen=None):
         train_accuracy_metric.reset_states()
         train_loss_avg.reset_state()
 
+        # Create Probability Model
+        softmax_layer = tf.keras.layers.Softmax()(model.output)
+        probability_model = tf.keras.models.Model(inputs=model.input, outputs=softmax_layer)
+
+        list_probability_outcome = list()
+        list_true_outcome = list()
+        list_pred_outcome = list()
+
         # Run a validation loop at the end of each epoch.
         for x_batch_val, y_batch_val in validation_data_gen:
             loss_value = loss(model, loss_fn, x_batch_val, y_batch_val, training=False)
             # Update val metrics
+            y_batch_outcome_pred_prob = np.array(probability_model(x_batch_val, training=False))
+            y_batch_outcome_pred = np.argmax(y_batch_outcome_pred_prob, axis=1).astype(np.int64)
+            y_batch_outcome_pred = np.reshape(y_batch_outcome_pred, (-1, 1))
+
             val_accuracy_metric.update_state(y_batch_val, model(x_batch_val, training=False))
             val_loss_avg.update_state(loss_value)
+            f1_accuracy_metric.update_state(y_batch_val, y_batch_outcome_pred)
+            print(y_batch_outcome_pred_prob)
+            y_batch_outcome_pred = np.argmax(y_batch_outcome_pred_prob, axis=1).astype(np.int64)
+            y_batch_outcome_pred_prob = np.array(y_batch_outcome_pred_prob[:, 1])
+
+            # dumb way to make an array of list
+            for i, y in enumerate(y_batch_val):
+                list_probability_outcome.append(round(y_batch_outcome_pred_prob[i], 3))
+                list_pred_outcome.append(y_batch_outcome_pred[i])
+                list_true_outcome.append(y[0])
+                print(y)
+                print(y_batch_outcome_pred_prob[i])
+                print(y_batch_outcome_pred[i])
+
+        
+        list_probability_outcome = np.array(list_probability_outcome)
+        list_pred_outcome = np.array(list_pred_outcome)
+        list_true_outcome = np.array(list_true_outcome)
+
+        print(list_true_outcome)
+        print(list_probability_outcome)
+        
+        challenge_score = compute_challenge_score(list_true_outcome, list_probability_outcome)
+        auroc_outcomes, auprc_outcomes = compute_auc(list_true_outcome, list_probability_outcome)
 
         val_accuracy_results.append(val_accuracy_metric.result())
         val_loss_results.append(val_loss_avg.result())
+        f1_score_results.append(f1_accuracy_metric.result())
+        challenge_score_results.append(challenge_score)
+        auroc_results.append(auroc_outcomes)
+        auprc_results.append(auprc_outcomes)
+        print(challenge_score)
+        print(auroc_outcomes)
+        print(auprc_outcomes)
+
         val_accuracy_metric.reset_states()
         val_loss_avg.reset_states()
+        f1_accuracy_metric.reset_states()
 
         prog_bar_values=[('acc', np.array(train_accuracy_results[-1])), ('loss', np.array(train_loss_results[-1])), 
-                         ('val_acc', np.array(val_accuracy_results[-1])), ('val_loss', np.array(val_loss_results[-1]))]
+                         ('val_acc', np.array(val_accuracy_results[-1])), ('val_loss', np.array(val_loss_results[-1])),
+                         ('f1_score', np.array(f1_score_results[-1])), ('challenge_score', np.array(challenge_score_results[-1])),
+                         ('AUROC', np.array(auroc_results[-1])), ('AUPRC', np.array(auprc_results[-1]))]
+        
         
         prog_bar_epoch.add(0, values=prog_bar_values)
 
+    # plot in last epoch
+    make_roc_graph(list_true_outcome, list_probability_outcome, graph_folder=graph_folder)
+    plot_confusion_matrix(list_true_outcome, list_pred_outcome, graph_folder=graph_folder)
+    plot_confusion_matrix_challenge_score(list_true_outcome, list_probability_outcome, graph_folder=graph_folder)
     # Some simple trade off dumb stuff you can do ;D
     history['accuracy'] = train_accuracy_results
     history['loss'] = train_loss_results
