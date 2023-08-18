@@ -38,6 +38,8 @@ python3 train_model.py /mnt/c/Users/audre/physionet/v1.0/data_train_debug /mnt/c
 
 python3 train_model.py /mnt/c/Users/audre/physionet/v1.0/data_train /mnt/c/Users/audre/physionet/v1.0/model/
 
+python3 train_model.py /mnt/c/Users/audre/physionet/v1.0/data/training /mnt/c/Users/audre/physionet/v1.0/model/
+
 python3 run_model.py /mnt/c/Users/audre/physionet/v1.0/model/ /mnt/c/Users/audre/physionet/v1.0/data_test_debug /mnt/c/Users/audre/physionet/v1.0/test_outputs
 
 python3 run_model.py /mnt/c/Users/audre/physionet/v1.0/model/ /mnt/c/Users/audre/physionet/v1.0/data_test /mnt/c/Users/audre/physionet/v1.0/test_outputs

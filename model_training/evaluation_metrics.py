@@ -3,12 +3,12 @@ from helper_code import *
 # Added imports
 import preview_utilities.graphing as plotter
 
-def plot_confusion_matrix(labels, outputs, graph_folder):
+def plot_confusion_matrix(labels, outputs, graph_folder, graph_name='confusion_matrix.png'):
     assert len(labels) == len(outputs)
-    plotter.plot_confusion_matrix(labels, outputs, graph_folder)
+    plotter.plot_confusion_matrix(labels, outputs, graph_folder, graph_name)
     return
 
-def plot_confusion_matrix_challenge_score(labels, outputs, graph_folder):
+def plot_confusion_matrix_challenge_score(labels, outputs, graph_folder, graph_name='confusion_matrix_challenge.png'):
     # Plot by threshold
     assert len(labels) == len(outputs)
     num_instances = len(labels)
@@ -74,10 +74,10 @@ def plot_confusion_matrix_challenge_score(labels, outputs, graph_folder):
     tn = tn[max_tpr_indices]
     fn = fn[max_tpr_indices]
     threshold = thresholds[max_tpr_indices]
-    plotter.plot_confusion_matrix_challenge(tp, tn, fp, fn, threshold, graph_folder)
+    plotter.plot_confusion_matrix_challenge(tp, tn, fp, fn, threshold, graph_folder, graph_name)
     return
 
-def make_roc_graph(labels, outputs, graph_folder):
+def make_roc_graph(labels, outputs, graph_folder, graph_name='roc_graph.png'):
     # outputs is the form of outcome probability
     assert len(labels) == len(outputs)
     num_instances = len(labels)
@@ -100,7 +100,6 @@ def make_roc_graph(labels, outputs, graph_folder):
     fp[0] = 0
     fn[0] = np.sum(labels == 1)
     tn[0] = np.sum(labels == 0)
-    print(tp[0], fp[0], fn[0], tn[0])
 
     # Update the TPs, FPs, FNs, and TNs using the values at the previous threshold.
     i = 0
@@ -118,10 +117,6 @@ def make_roc_graph(labels, outputs, graph_folder):
                 fp[j] += 1
                 tn[j] -= 1
             i += 1
-    print(tp)
-    print(fn)
-    print(fp)
-    print(tn)
     # Compute the TPRs and FPRs.
     tpr = np.zeros(num_thresholds)
     fpr = np.zeros(num_thresholds)
@@ -134,7 +129,7 @@ def make_roc_graph(labels, outputs, graph_folder):
             fpr[j] = float('nan')
 
 
-    plotter.plot_roc_graph(tpr, fpr, graph_folder)
+    plotter.plot_roc_graph(tpr, fpr, graph_folder, graph_name)
 
     return
 

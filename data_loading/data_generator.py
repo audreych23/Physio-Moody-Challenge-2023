@@ -65,7 +65,7 @@ class DataGenerator(tf.keras.utils.Sequence):
         # Generate data
         # dim of x data depends on batch size and available hours per patient
         # delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data = self._generate_x_data(patient_ids_batch)
-        psd_features, patient_features = self._generate_x_data(patient_ids_batch)
+        delta_psd, theta_psd, alpha_psd, beta_psd, patient_features = self._generate_x_data(patient_ids_batch)
 
         print("X data has finished generating...")
         # Sanity check if first dimension is batch size
@@ -78,9 +78,9 @@ class DataGenerator(tf.keras.utils.Sequence):
             # print("shape of x and y data", np.shape(x_data), np.shape(y_data))
             assert np.shape(y_data)[0] == len(patient_ids_batch)
 
-            return (psd_features, patient_features), y_data
+            return (delta_psd, theta_psd, alpha_psd, beta_psd, patient_features), y_data
         else:
-            return (psd_features, patient_features), 
+            return (delta_psd, theta_psd, alpha_psd, beta_psd, patient_features), 
         
     def on_epoch_end(self):
         """Shuffle the indexes after each end of epoch
@@ -104,12 +104,12 @@ class DataGenerator(tf.keras.utils.Sequence):
         """
         # Initialization
 
-        # list_delta_psd_data = list()
-        # list_theta_psd_data = list()
-        # list_alpha_psd_data = list()
-        # list_beta_psd_data = list()
+        list_delta_psd_data = list()
+        list_theta_psd_data = list()
+        list_alpha_psd_data = list()
+        list_beta_psd_data = list()
 
-        list_psd_features = list()
+        # list_psd_features = list()
         list_patient_features = list()
 
         # Generate data
@@ -130,42 +130,42 @@ class DataGenerator(tf.keras.utils.Sequence):
             alpha_psd_data = self._arr_transformations_model(alpha_psd_data)
             beta_psd_data = self._arr_transformations_model(beta_psd_data)
 
-            concatenated_psd_features = np.concatenate((delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data), axis=-1)
+            # concatenated_psd_features = np.concatenate((delta_psd_data, theta_psd_data, alpha_psd_data, beta_psd_data), axis=-1)
 
-            list_psd_features.append(concatenated_psd_features)
+            # list_psd_features.append(concatenated_psd_features)
             list_patient_features.append(patient_features)
             # print("available_signal_data: ", np.shape(available_signal_data))
-            # list_delta_psd_data.append(delta_psd_data)
-            # list_theta_psd_data.append(theta_psd_data)
-            # list_alpha_psd_data.append(alpha_psd_data)
-            # list_beta_psd_data.append(beta_psd_data)
+            list_delta_psd_data.append(delta_psd_data)
+            list_theta_psd_data.append(theta_psd_data)
+            list_alpha_psd_data.append(alpha_psd_data)
+            list_beta_psd_data.append(beta_psd_data)
             # print(len(list_beta_psd_data))
             # x_data.append(available_signal_data)
             # len_x_datas.append(np.shape(available_signal_data)[0])
             # x_data[i,] = available_signal_data
         
-        list_psd_features = np.array(list_psd_features, dtype=object)
+        # list_psd_features = np.array(list_psd_features, dtype=object)
         list_patient_features = np.array(list_patient_features, dtype=object)
-        # list_delta_psd_data = np.array(list_delta_psd_data, dtype=object)
-        # list_theta_psd_data = np.array(list_theta_psd_data, dtype=object)
-        # list_alpha_psd_data = np.array(list_alpha_psd_data, dtype=object)
-        # list_beta_psd_data = np.array(list_beta_psd_data, dtype=object)
+        list_delta_psd_data = np.array(list_delta_psd_data, dtype=object)
+        list_theta_psd_data = np.array(list_theta_psd_data, dtype=object)
+        list_alpha_psd_data = np.array(list_alpha_psd_data, dtype=object)
+        list_beta_psd_data = np.array(list_beta_psd_data, dtype=object)
 
-        list_psd_features = np.vstack(list_psd_features)
+        # list_psd_features = np.vstack(list_psd_features)
         list_patient_features = np.vstack(list_patient_features)
-        # list_delta_psd_data = np.vstack(list_delta_psd_data)
-        # list_theta_psd_data = np.vstack(list_theta_psd_data)
-        # list_alpha_psd_data = np.vstack(list_alpha_psd_data)
-        # list_beta_psd_data = np.vstack(list_beta_psd_data)
+        list_delta_psd_data = np.vstack(list_delta_psd_data)
+        list_theta_psd_data = np.vstack(list_theta_psd_data)
+        list_alpha_psd_data = np.vstack(list_alpha_psd_data)
+        list_beta_psd_data = np.vstack(list_beta_psd_data)
 
-        list_psd_features = np.asarray(list_psd_features).astype(np.float32)
+        # list_psd_features = np.asarray(list_psd_features).astype(np.float32)
         list_patient_features = np.asarray(list_patient_features).astype(np.float32)
-        # list_delta_psd_data = np.asarray(list_delta_psd_data).astype(np.float32)
-        # list_theta_psd_data = np.asarray(list_theta_psd_data).astype(np.float32)
-        # list_alpha_psd_data = np.asarray(list_alpha_psd_data).astype(np.float32)
-        # list_beta_psd_data = np.asarray(list_beta_psd_data).astype(np.float32)
+        list_delta_psd_data = np.asarray(list_delta_psd_data).astype(np.float32)
+        list_theta_psd_data = np.asarray(list_theta_psd_data).astype(np.float32)
+        list_alpha_psd_data = np.asarray(list_alpha_psd_data).astype(np.float32)
+        list_beta_psd_data = np.asarray(list_beta_psd_data).astype(np.float32)
   
-        return list_psd_features, list_patient_features
+        return list_delta_psd_data, list_theta_psd_data, list_alpha_psd_data, list_beta_psd_data, list_patient_features
     
     def _arr_transformations_model(self, data_arr):
         """Convert from (X, Y, Z) into (X, Y * Z) into (72, Y * Z) into (1, 72, Y * Z) given X <= 72 to feed to the model

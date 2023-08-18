@@ -45,6 +45,56 @@ def model_lstm(timesteps, features_shape, num_classes):
     merged_model.summary()
     return merged_model
 
+def model_lstm_clinical_data_separate(timesteps, features_shape, num_classes):
+    # delta model
+    # timesteps x features
+    assert features_shape == (342, 180, 180, 828, 8)
+    delta_inputs = tf.keras.layers.Input(
+        shape=(timesteps, features_shape[0])
+    )
+    delta_l1 = tf.keras.layers.Masking(mask_value=0.)(delta_inputs)
+    delta_l2 = tf.keras.layers.LSTM(128)(delta_l1)
+    delta_l3 = tf.keras.layers.Dense(32, activation='relu')(delta_l2)
+
+    # theta model
+    theta_inputs = tf.keras.layers.Input(
+        shape=(timesteps, features_shape[1])
+    )
+    theta_l1 = tf.keras.layers.Masking(mask_value=0.)(theta_inputs)
+    theta_l2 = tf.keras.layers.LSTM(128)(theta_l1)
+    theta_l3 = tf.keras.layers.Dense(16, activation='relu')(theta_l2)
+
+    # alpha model
+    alpha_inputs = tf.keras.layers.Input(
+        shape=(timesteps, features_shape[2])
+    )
+    alpha_l1 = tf.keras.layers.Masking(mask_value=0.)(alpha_inputs)
+    alpha_l2 = tf.keras.layers.LSTM(128)(alpha_l1)
+    alpha_l3 = tf.keras.layers.Dense(16, activation='relu')(alpha_l2)
+
+    # beta model
+    beta_inputs = tf.keras.layers.Input(
+        shape=(timesteps, features_shape[3])
+    )
+    beta_l1 = tf.keras.layers.Masking(mask_value=0.)(beta_inputs)
+    beta_l2 = tf.keras.layers.LSTM(128)(beta_l1)
+    beta_l3 = tf.keras.layers.Dense(32, activation='relu')(beta_l2)
+    
+    clinical_inputs = tf.keras.layers.Input(
+        shape=(features_shape[4])
+    )
+    clinical_l2 = tf.keras.layers.Dense(2, activation='relu')(clinical_inputs)
+
+    # Merge all the models
+    concatenated_layers = tf.keras.layers.concatenate([delta_l3, theta_l3, alpha_l3, beta_l3, clinical_l2])
+
+    concatenated_l4 = tf.keras.layers.Dense(32, activation='relu')(concatenated_layers)
+    output_layer = tf.keras.layers.Dense(num_classes)(concatenated_l4)
+
+    merged_model = tf.keras.models.Model(inputs=[(delta_inputs, theta_inputs, alpha_inputs, beta_inputs, clinical_inputs)], outputs=[output_layer])
+    merged_model.summary()
+    return merged_model
+
 def model_lstm_clinical_data(timesteps, features_shape, num_classes):
     # delta model
     # timesteps x features

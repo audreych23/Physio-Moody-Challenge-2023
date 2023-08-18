@@ -33,7 +33,7 @@ tf.random.set_seed(seed)
 # Train your model.
 def train_challenge_model(data_folder, model_folder, verbose):
     # Disable This if validation is not used
-    validation = True
+    validation = False
     # Disable if k_fold is not used
     use_k_fold_cross_validation = True
     # Create a folder for the model if it does not already exist.
@@ -47,7 +47,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
     # time smaple x channel
     # hardcoding (but this is for delta psd iirc)
     timesteps = 72
-    features = (1530, 8)
+    features = (342, 180, 180, 828, 8)
     # dimension = (72, 342)
     num_classes = 2
     
@@ -62,7 +62,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
     patient_ids = find_data_folders(data_folder)
     
     # shuffle the patient ids
-    patient_ids = random.shuffle(patient_ids)
+    random.shuffle(patient_ids)
     
     total_num_patients_train = len(patient_ids)
 
@@ -71,7 +71,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
 
     # First is for evaluation how good the model is
     if use_k_fold_cross_validation:
-        train_and_evaluate_model.k_fold_cross_validation(data_folder, model_folder, graph_folder, verbose, 
+        train_and_evaluate_model.stratified_k_fold(data_folder, model_folder, graph_folder, verbose, 
                                                    patient_ids, timesteps, features, num_classes, batch_size, epochs, k = 3)
     else:
         train_and_evaluate_model.train_and_evaluate_model(data_folder, model_folder, graph_folder, verbose, 
