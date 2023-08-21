@@ -53,7 +53,7 @@ def train_challenge_model(data_folder, model_folder, verbose):
     
     # Training parameters
     batch_size = 32
-    epochs = 5
+    epochs = 15
     threshold = 48
     # Find data files.
     if verbose >= 1:
