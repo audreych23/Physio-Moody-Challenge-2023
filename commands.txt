@@ -34,6 +34,8 @@ File Architecture
 |_ v2.0 : official phase
     |_ data : Full dataset (partial because only 1 Tb, symlink to c)
 
+linux:
+
 python3 train_model.py /mnt/c/Users/audre/physionet/v1.0/data_train_debug /mnt/c/Users/audre/physionet/v1.0/model/
 
 python3 train_model.py /mnt/c/Users/audre/physionet/v1.0/data_train /mnt/c/Users/audre/physionet/v1.0/model/
@@ -50,7 +52,9 @@ python3 evaluate_model.py /mnt/c/Users/audre/physionet/v1.0/data_test /mnt/c/Use
 python3 evaluate_model.py /mnt/c/Users/audre/physionet/v1.0/data_test /mnt/c/Users/audre/physionet/v1.0/test_outputs /mnt/c/Users/audre/physionet/v1.0/experiment_result/scores1.csv /mnt/c/Users/audre/physionet/v1.0/experiment_result/
 
 python3 data_preview.py /mnt/c/Users/audre/physionet/v1.0/data/training /mnt/c/Users/audre/physionet/v1.0/model/graph /mnt/c/Users/audre/physionet/v1.0/model/graph/data.csv
+
 python3 data_preview.py /mnt/c/Users/audre/physionet/v1.0/data_train /mnt/c/Users/audre/physionet/v1.0/model/graph /mnt/c/Users/audre/physionet/v1.0/model/graph/data.csv
+
 python3 data_preview.py /mnt/c/Users/audre/physionet/v1.0/data_test /mnt/c/Users/audre/physionet/v1.0/model/graph /mnt/c/Users/audre/physionet/v1.0/model/graph/data.csv
 
 # Delete all folders when the highest hours is (48 - 1). Run this script first to avoid nan bug
@@ -60,3 +64,34 @@ python3 clean_data_train.py /mnt/c/Users/audre/physionet/v1.0/data_test 48
 # Delete signal data in each folder below 48, failing lolldsfhkasdhjf
 python3 delete_signal_below_threshold.py /mnt/c/Users/audre/physionet/v1.0/data_train 48
 python3 delete_signal_below_threshold.py /mnt/c/Users/audre/physionet/v1.0/data_test 48
+
+Windows:
+
+python train_model.py C:\Users\audre\physionet\v1.0\data_train_debug C:\Users\audre\physionet\v1.0\model
+
+python train_model.py C:\Users\audre\physionet\v1.0\data_train C:\Users\audre\physionet\v1.0\model
+
+python train_model.py C:\Users\audre\physionet\v1.0\data\training C:\Users\audre\physionet\v1.0\model
+
+python run_model.py C:\Users\audre\physionet\v1.0\model C:\Users\audre\physionet\v1.0\data_test_debug C:\Users\audre\physionet\v1.0\test_outputs
+
+python run_model.py C:\Users\audre\physionet\v1.0\model C:\Users\audre\physionet\v1.0\data_test C:\Users\audre\physionet\v1.0\test_outputs
+
+python remove_data.py -i C:\Users\audre\physionet\v1.0\data_test -o C:\Users\audre\physionet\v1.0\label_outputs
+
+python evaluate_model.py C:\Users\audre\physionet\v1.0\data_test C:\Users\audre\physionet\v1.0\test_outputs C:\Users\audre\physionet\v1.0\experiment_result\scores1.csv
+python evaluate_model.py C:\Users\audre\physionet\v1.0\data_test C:\Users\audre\physionet\v1.0\test_outputs C:\Users\audre\physionet\v1.0\experiment_result\scores1.csv C:\Users\audre\physionet\v1.0\experiment_result\
+
+python data_preview.py C:\Users\audre\physionet\v1.0\data\training C:\Users\audre\physionet\v1.0\model\graph C:\Users\audre\physionet\v1.0\model\graph\data.csv
+
+python data_preview.py C:\Users\audre\physionet\v1.0\data_train C:\Users\audre\physionet\v1.0\model\graph C:\Users\audre\physionet\v1.0\model\graph\data.csv
+
+python data_preview.py C:\Users\audre\physionet\v1.0\data_test C:\Users\audre\physionet\v1.0\model\graph\ C:\Users\audre\physionet\v1.0\model\graph\data.csv
+
+# Delete all folders when the highest hours is (48 - 1). Run this script first to avoid nan bug
+python clean_data_train.py C:\Users\audre\physionet\v1.0\data_train 48
+python clean_data_train.py C:\Users\audre\physionet\v1.0\data_test 48
+
+# Delete signal data in each folder below 48, failing lolldsfhkasdhjf
+python delete_signal_below_threshold.py C:\Users\audre\physionet\v1.0\data_train 48
+python delete_signal_below_threshold.py C:\Users\audre\physionet\v1.0\data_test 48
