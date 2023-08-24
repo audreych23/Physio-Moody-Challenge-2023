@@ -29,6 +29,9 @@ def stratified_k_fold(data_folder, model_folder, graph_folder, verbose, patient_
 
     train_val_split = skf.split(dummy_x_data, y_data)
 
+    model_outcome = model_lstm_clinical_data_separate(timesteps, features_dim, num_classes)
+    plotter.plot_model(model_outcome, graph_folder, 'model_architecture.png')
+
     for idx, (train_index, val_index) in enumerate(train_val_split):
         print('idx:', idx)
         # i.e. k = 5 and n = 8
@@ -82,6 +85,8 @@ def stratified_k_fold(data_folder, model_folder, graph_folder, verbose, patient_
         save_challenge_model_lstm(model_folder, model_outcome, clinical_data_imputer, f"model_outcome_{idx}")
         if verbose >= 1:
             print(f'Done. idx = {idx}')
+
+    plotter.plot_model(model_outcome, graph_folder, 'model_architecture.png')
 
     return
 

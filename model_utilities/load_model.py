@@ -15,7 +15,6 @@ def load_model(model_folder):
     graph_folder = os.path.join(model_folder, "graph")
     os.makedirs(graph_folder, exist_ok=True)
 
-    plotter.plot_model(outcome_model, graph_folder, 'model_architecture.png')
     return outcome_model
 
 def load_imputer(model_folder):
